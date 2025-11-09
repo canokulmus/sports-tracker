@@ -1,4 +1,13 @@
 import itertools
+from enum import Enum, auto
+
+
+class GameState(Enum):
+    READY = auto()
+    RUNNING = auto()
+    PAUSED = auto()
+    ENDED = auto()
+
 
 class Team:
     def __init__(self, name):
@@ -19,7 +28,7 @@ class Team:
 
     def addplayer(self, name, no):
         # Method is self-explanatory
-        self.players[name] = {'no': no}
+        self.players[name] = {"no": no}
 
     def delplayer(self, name):
         try:
@@ -27,6 +36,32 @@ class Team:
         except KeyError:
             # Fail gracefully instead of crashing if player not found
             print(f"Warning: Player '{name}' not found.")
+
+
+class Game:
+    def __init__(self, home, away, id, gametime=0, state=GameState.READY):
+        self.home = home
+        self.away = away
+        self.gametime = gametime
+        self.id = id
+        self.state = state
+
+    def id(self):
+        return self.id
+    
+    def home(self):
+        return self.home
+    
+    def away(self):
+        return self.away
+    
+    def start(self):
+
+
+class Cup:
+    def __init__(self):
+        self.games = []
+
 
 class Repo:
     def __init__(self):
@@ -42,6 +77,7 @@ class Repo:
             raise ValueError("You must specify an object 'type' to create.")
 
         new_id = next(self._id_counter)  # Get the next sequential ID
+
         new_obj = None
 
         # --- Factory Pattern ---
@@ -51,7 +87,8 @@ class Repo:
             new_obj = Team(**kwargs)
 
         elif obj_type == "game":
-            new_obj = Game(**kwargs)  # Assumes Game class is defined
+            kwargs["id"] = new_id
+            new_obj = Game(**kwargs)
 
         elif obj_type == "cup":
             new_obj = Cup(**kwargs)  # Assumes Cup class is defined
@@ -59,7 +96,12 @@ class Repo:
         else:
             raise ValueError(f"Unknown object type '{obj_type}'")
 
-        self._objects[new_id] = new_obj
+        self._objects[new_id] = {
+            "instance": new_obj,
+            "attachment_count": 0,
+            "users": [],
+        }
+
         return new_id
 
     def list(self):
@@ -68,4 +110,15 @@ class Repo:
 
     def attach(self, id, user="Captain Barbossa"):
         # The 'user' param is accepted but not currently used in the logic
+        self._objects[id]["attachment_count"] += 1
+
         return self._objects[id]
+
+    def deattach(self, id):
+        self._objects[id]["attachment_count"] -= 1
+
+    def delete(self, id):
+        if self._objects[id]["attachment_count"] > 0:
+            raise ValueError("The object is still attached")
+        else:
+            del self._objects[id]
