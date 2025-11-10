@@ -55,11 +55,15 @@ class Repo:
 
     def attach(self, id: int, user: str = "Polat Alemdar") -> Dict[str, Any]:
         self._objects[id]["attachment_count"] += 1
+        self._objects[id]["users"].append(user)
         return self._objects[id]
 
     def detach(self, id: int, user: str) -> None:
-        if self._objects[id]["attachment_count"] > 0:
-            self._objects[id]["attachment_count"] -= 1
+        obj_data = self._objects[id]
+        if user in obj_data["users"]:
+            obj_data["users"].remove(user)
+            if obj_data["attachment_count"] > 0:
+                obj_data["attachment_count"] -= 1
 
     def delete(self, id: int) -> None:
         """Deletes an object if it is no longer attached."""
