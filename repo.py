@@ -49,9 +49,18 @@ class Repo:
 
         return new_id
 
-    def list(self) -> List[Tuple[int, Dict[str, Any]]]:
-        # Returns a list of all managed objects and their IDs.
-        return [(id, self._objects[id]) for id in self._objects.keys()]
+    def list(self) -> List[Tuple[int, str]]:
+        """
+        Returns a list of (id, description) pairs for all managed objects.
+        """
+        results: List[Tuple[int, str]] = []
+        for id, data in self._objects.items():
+            instance = data["instance"]
+            # Python automatically calls the correct __str__ method!
+            description = str(instance)
+            results.append((id, description))
+
+        return results
 
     def attach(self, id: int, user: str = "Polat Alemdar") -> Dict[str, Any]:
         self._objects[id]["attachment_count"] += 1

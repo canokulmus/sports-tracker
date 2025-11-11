@@ -43,6 +43,10 @@ class Game:
             name: {"no": data["no"], "score": 0} for name, data in away.players.items()
         }
 
+    def __str__(self) -> str:
+        """Returns the string representation of the Game."""
+        return f"Game: {self.home().team_name} vs {self.away().team_name}"
+
     def id(self) -> int:
         """Returns the game's ID."""
         return self.id_
