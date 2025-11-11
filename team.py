@@ -1,5 +1,5 @@
 from typing import Any, Dict
-
+from constants import TeamMessages
 
 class Team:
     """Represents a sports team and its players."""
@@ -17,7 +17,7 @@ class Team:
 
     def __setitem__(self, key: str, value: Any) -> None:
         """Sets a generic team attribute."""
-        print(f"Setting generic attribute {key} to {value}")
+        print(TeamMessages.setting_attribute(key, str(value)))
         self._generic_attrs[key] = value
 
     def __getattr__(self, key: str) -> Any:
@@ -55,4 +55,4 @@ class Team:
         try:
             del self.players[name]
         except KeyError:
-            print(f"Warning: Player '{name}' not found.")
+            print(TeamMessages.player_not_found(name))

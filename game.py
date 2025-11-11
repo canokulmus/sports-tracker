@@ -1,18 +1,11 @@
+# game.py
 from datetime import datetime
-from enum import Enum, auto
 from time import monotonic
-from typing import Any, List
+from typing import Any, Dict, List, Tuple
 
 from team import Team
-
-
-class GameState(Enum):
-    """Enum for game states to prevent bugs from using invalid state strings."""
-
-    READY = auto()
-    RUNNING = auto()
-    PAUSED = auto()
-    ENDED = auto()
+from constants import GameState, GameMessages, GameSettings
+from helpers import TimeHelper, PlayerHelper, ScoreHelper
 
 
 class Game:
@@ -28,22 +21,33 @@ class Game:
     ) -> None:
         self.home_ = home
         self.away_ = away
-        self.id_ = id_  # Trailing underscore to avoid shadowing the built-in id()
+        self.id_ = id_
         self.datetime = datetime
         self.state = state
-        # total_time accumulates paused game duration.
-        self.total_time = 0
-        # gametime marks the start of a running segment.
-        self.gametime = 0
-        self.home_score = 0
-        self.away_score = 0
+        
+        # Time tracking
+        self.total_time = GameSettings.DEFAULT_TIME
+        self.gametime = GameSettings.DEFAULT_TIME
+        
+        # Scores
+        self.home_score = GameSettings.DEFAULT_SCORE
+        self.away_score = GameSettings.DEFAULT_SCORE
+        
+        # Player scores
         self.home_players = {
-            name: {"no": data["no"], "score": 0} for name, data in home.players.items()
+            name: {"no": data["no"], "score": GameSettings.DEFAULT_SCORE}
+            for name, data in home.players.items()
         }
         self.away_players = {
-            name: {"no": data["no"], "score": 0} for name, data in away.players.items()
+            name: {"no": data["no"], "score": GameSettings.DEFAULT_SCORE}
+            for name, data in away.players.items()
         }
+        
+        # Observer pattern
         self._observers: List[Any] = []
+        
+        # Timeline tracking
+        self.timeline: List[Tuple[str, str, str, int]] = []
 
     def __str__(self) -> str:
         """Returns the string representation of the Game."""
@@ -71,73 +75,128 @@ class Game:
         if self.state == GameState.READY:
             self.state = GameState.RUNNING
             self.gametime = monotonic()
-            print("Game started")
+            print(GameMessages.GAME_STARTED)
         elif self.state == GameState.RUNNING:
-            print("Game is already running.")
+            print(GameMessages.GAME_ALREADY_RUNNING)
         elif self.state == GameState.PAUSED:
-            print("Game is paused. Use resume() to continue.")
+            print(GameMessages.GAME_PAUSED_USE_RESUME)
         else:
-            print("Game is already ended.")
+            print(GameMessages.GAME_ALREADY_ENDED)
 
     def pause(self) -> None:
         """Pauses the game if it is RUNNING."""
         if self.state == GameState.RUNNING:
-            # Add the last running segment's duration to the total before pausing.
             self.total_time += monotonic() - self.gametime
             self.state = GameState.PAUSED
-            print("Game paused")
+            print(GameMessages.GAME_PAUSED)
         elif self.state == GameState.PAUSED:
-            print("Game is already paused.")
+            print(GameMessages.GAME_ALREADY_PAUSED)
         elif self.state == GameState.ENDED:
-            print("Game is already ended.")
+            print(GameMessages.GAME_ALREADY_ENDED)
         else:
-            print("Game is not running.")
+            print(GameMessages.GAME_NOT_RUNNING)
 
     def resume(self) -> None:
         """Resumes the game if it is PAUSED."""
         if self.state == GameState.PAUSED:
             self.state = GameState.RUNNING
             self.gametime = monotonic()
-            print("Game resumed")
+            print(GameMessages.GAME_RESUMED)
         elif self.state == GameState.RUNNING:
-            print("Game is already running.")
+            print(GameMessages.GAME_ALREADY_RUNNING)
         elif self.state == GameState.READY:
-            print("Game has not started yet. Use start().")
-        else:  # ENDED
-            print("Game is already ended.")
+            print(GameMessages.GAME_NOT_STARTED)
+        else:
+            print(GameMessages.GAME_ALREADY_ENDED)
 
     def end(self) -> None:
         """Ends the game."""
         if self.state == GameState.ENDED:
-            print("Game is already ended.")
+            print(GameMessages.GAME_ALREADY_ENDED)
             return
 
         if self.state == GameState.RUNNING:
             self.total_time += monotonic() - self.gametime
 
         self.state = GameState.ENDED
-        print("Game has ended.")
+        print(GameMessages.GAME_ENDED)
 
         self._notify_observers()
 
     def score(self, points: int, team: Team, player: str | None = None) -> None:
         """Adds points to a team's score if the game is running."""
         if self.state != GameState.RUNNING:
-            print("Cannot score, game is not running.")
+            print(GameMessages.CANNOT_SCORE_NOT_RUNNING)
             return
 
+        # Calculate and format current time
+        current_time = TimeHelper.calculate_current_time(
+            self.state, self.total_time, self.gametime
+        )
+        time_str = TimeHelper.format_game_time(current_time)
+
+        # Get player name
+        player_name = PlayerHelper.get_player_name(player)
+
+        # Update scores and timeline
         if team == self.home_:
+            self._score_for_team(
+                team=team,
+                team_type="Home",
+                points=points,
+                time_str=time_str,
+                player=player,
+                player_name=player_name,
+                players_dict=self.home_players,
+            )
             self.home_score += points
-            print(f"{team.team_name} scored {points} points.")
-            if player is not None and player in self.home_players:
-                self.home_players[player]["score"] += points
+            
         elif team == self.away_:
+            self._score_for_team(
+                team=team,
+                team_type="Away",
+                points=points,
+                time_str=time_str,
+                player=player,
+                player_name=player_name,
+                players_dict=self.away_players,
+            )
             self.away_score += points
-            print(f"{team.team_name} scored {points} points.")
-            if player is not None and player in self.away_players:
-                self.away_players[player]["score"] += points
 
         self._notify_observers()
+
+    def _score_for_team(
+        self,
+        team: Team,
+        team_type: str,
+        points: int,
+        time_str: str,
+        player: str | None,
+        player_name: str,
+        players_dict: Dict[str, Dict[str, int]],
+    ) -> None:
+        """
+        Internal helper to handle scoring for a team.
+        
+        Args:
+            team: Team object
+            team_type: "Home" or "Away"
+            points: Points scored
+            time_str: Formatted time string
+            player: Player name or None
+            player_name: Resolved player name
+            players_dict: Dictionary of team's players
+        """
+        print(GameMessages.team_scored(team.team_name, points))
+        
+        # Add to timeline
+        timeline_entry = ScoreHelper.create_timeline_entry(
+            time_str, team_type, player_name, points
+        )
+        self.timeline.append(timeline_entry)
+        
+        # Update player score
+        PlayerHelper.update_player_score(players_dict, player, points)
 
     def watch(self, obj: Any) -> None:
         """Adds the obj as an observer for the game."""
@@ -148,3 +207,35 @@ class Game:
         """Remove the obj from list of observers."""
         if obj in self._observers:
             self._observers.remove(obj)
+
+    def stats(self) -> Dict[str, Any]:
+        """Return a dictionary of game statistics."""
+        
+        # Calculate current time using helper
+        current_time = TimeHelper.calculate_current_time(
+            self.state, self.total_time, self.gametime
+        )
+
+        # Get time display using helper
+        time_display = TimeHelper.get_time_display(self.state, current_time)
+
+        return {
+            "Home": {
+                "Name": self.home_.team_name,
+                "Pts": self.home_score,
+                "Players": {
+                    name: data["score"]
+                    for name, data in self.home_players.items()
+                },
+            },
+            "Away": {
+                "Name": self.away_.team_name,
+                "Pts": self.away_score,
+                "Players": {
+                    name: data["score"]
+                    for name, data in self.away_players.items()
+                },
+            },
+            "Time": time_display,
+            "Timeline": self.timeline,
+        }
