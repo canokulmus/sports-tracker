@@ -1,6 +1,7 @@
 from datetime import datetime
 from enum import Enum, auto
 from time import monotonic
+from typing import Any, List
 
 from team import Team
 
@@ -42,10 +43,16 @@ class Game:
         self.away_players = {
             name: {"no": data["no"], "score": 0} for name, data in away.players.items()
         }
+        self._observers: List[Any] = []
 
     def __str__(self) -> str:
         """Returns the string representation of the Game."""
         return f"Game: {self.home().team_name} vs {self.away().team_name}"
+
+    def _notify_observers(self) -> None:
+        """Internal method to call .update() on all observers."""
+        for obj in self._observers:
+            obj.update(self)
 
     def id(self) -> int:
         """Returns the game's ID."""
@@ -111,6 +118,8 @@ class Game:
         self.state = GameState.ENDED
         print("Game has ended.")
 
+        self._notify_observers()
+
     def score(self, points: int, team: Team, player: str | None = None) -> None:
         """Adds points to a team's score if the game is running."""
         if self.state != GameState.RUNNING:
@@ -127,3 +136,15 @@ class Game:
             print(f"{team.team_name} scored {points} points.")
             if player is not None and player in self.away_players:
                 self.away_players[player]["score"] += points
+
+        self._notify_observers()
+
+    def watch(self, obj: Any) -> None:
+        """Adds the obj as an observer for the game."""
+        if obj not in self._observers:
+            self._observers.append(obj)
+
+    def unwatch(self, obj: Any) -> None:
+        """Remove the obj from list of observers."""
+        if obj in self._observers:
+            self._observers.remove(obj)

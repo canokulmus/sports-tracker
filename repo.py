@@ -1,5 +1,5 @@
 import itertools
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from cup import Cup
 from game import Game
@@ -16,7 +16,7 @@ class Repo:
 
     def create(self, **kwargs: Any) -> int:
         # A factory method to create objects. The 'type' kwarg determines the class.
-        obj_type: str = kwargs.pop("type", None)
+        obj_type: Optional[str] = kwargs.pop("type", None)
 
         if obj_type is None:
             raise ValueError("You must specify an object 'type' to create.")
