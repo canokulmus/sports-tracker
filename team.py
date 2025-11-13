@@ -56,3 +56,27 @@ class Team:
             del self.players[name]
         except KeyError:
             print(TeamMessages.player_not_found(name))
+
+
+class PlaceholderTeam(Team):
+    """
+    Placeholder team for elimination rounds.
+    Represents the winner of a previous game that hasn't been played yet.
+    """
+    
+    def __init__(self, description: str, source_games: list[int]) -> None:
+        """
+        Args:
+            description: Description like "Winner of Game 1"
+            source_games: List of game IDs whose winner will fill this slot
+        """
+        super().__init__(description)
+        self.source_games = source_games
+        self.is_placeholder = True
+    
+    def __str__(self) -> str:
+        if len(self.source_games) == 1:
+            return f"Winner of Game {self.source_games[0]}"
+        else:
+            game_ids = ", ".join(str(g) for g in self.source_games)
+            return f"Winner of Games [{game_ids}]"

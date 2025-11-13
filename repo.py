@@ -61,6 +61,26 @@ class Repo:
             results.append((id, description))
 
         return results
+   
+    def listattached(self, user: str) -> List[Tuple[int, str]]:
+        """
+        Lists the objects that the user has attached.
+        
+        Args:
+            user: Username to check
+            
+        Returns:
+            List of (id, description) pairs for objects attached by this user
+        """
+        results: List[Tuple[int, str]] = []
+        
+        for obj_id, data in self._objects.items():
+            if user in data["users"]:
+                instance = data["instance"]
+                description = str(instance)
+                results.append((obj_id, description))
+        
+        return results
 
     def attach(self, id: int, user: str = "Polat Alemdar") -> Dict[str, Any]:
         self._objects[id]["attachment_count"] += 1

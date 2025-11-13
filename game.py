@@ -18,12 +18,14 @@ class Game:
         id_: int,
         datetime: datetime,
         state: GameState = GameState.READY,
+        group: str | None = None,
     ) -> None:
         self.home_ = home
         self.away_ = away
         self.id_ = id_
         self.datetime = datetime
         self.state = state
+        self.group = group
         
         # Time tracking
         self.total_time = GameSettings.DEFAULT_TIME
@@ -76,6 +78,7 @@ class Game:
             self.state = GameState.RUNNING
             self.gametime = monotonic()
             print(GameMessages.GAME_STARTED)
+            self._notify_observers()
         elif self.state == GameState.RUNNING:
             print(GameMessages.GAME_ALREADY_RUNNING)
         elif self.state == GameState.PAUSED:
@@ -89,6 +92,7 @@ class Game:
             self.total_time += monotonic() - self.gametime
             self.state = GameState.PAUSED
             print(GameMessages.GAME_PAUSED)
+            self._notify_observers()
         elif self.state == GameState.PAUSED:
             print(GameMessages.GAME_ALREADY_PAUSED)
         elif self.state == GameState.ENDED:
@@ -102,6 +106,7 @@ class Game:
             self.state = GameState.RUNNING
             self.gametime = monotonic()
             print(GameMessages.GAME_RESUMED)
+            self._notify_observers()
         elif self.state == GameState.RUNNING:
             print(GameMessages.GAME_ALREADY_RUNNING)
         elif self.state == GameState.READY:
