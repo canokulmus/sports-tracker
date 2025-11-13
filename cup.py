@@ -207,9 +207,9 @@ class Cup:
                 stats[away_team]["points"] += 2
                 stats[home_team]["lost"] += 1
             else:
-                # Berabere
+                # draw
                 stats[home_team]["draw"] += 1
-                stats[home_team]["points"] += 1  # Beraberlik = 1 puan
+                stats[home_team]["points"] += 1  # draw = 1 point
                 stats[away_team]["draw"] += 1
                 stats[away_team]["points"] += 1
 
@@ -249,7 +249,7 @@ class Cup:
             entry for entry in self._observers if entry["observer"] != obj
         ]
 
-        # Tüm maçlardan observer'ı çıkar
+        # Remove the observer from all games
         for game in self.games:
             game.unwatch(obj)
 
@@ -338,7 +338,7 @@ class Cup:
             home_team = teams[i]
             away_team = teams[i + 1]
 
-            # İlk maç
+            # First leg
             game = Game(
                 home=home_team,
                 away=away_team,
@@ -438,7 +438,7 @@ class Cup:
             # Initialize stats for real teams only.
             standings[team.team_name] = {"Round": 0, "Won": [], "Lost": None}
 
-        # Her round'u kontrol et
+        # Check each round and update standings
         for round_num, round_games in enumerate(self.rounds, 1):
             for game in round_games:
                 # Skip games involving placeholders as they haven't been played.
@@ -493,7 +493,7 @@ class Cup:
         shuffled_teams = self.teams.copy()
         random.shuffle(shuffled_teams)
 
-        # Gruplara böl
+        # Split teams into groups
         teams_per_group = len(shuffled_teams) // self.num_groups
 
         group_names = list(string.ascii_uppercase[: self.num_groups])  # A, B, C, ...
@@ -544,7 +544,7 @@ class Cup:
             self._game_id_counter += 1
             current_date += self.interval
 
-            # Double ise rövanş
+            # If double, create the reverse fixture.
             if double:
                 game2 = Game(
                     home=away_team,
