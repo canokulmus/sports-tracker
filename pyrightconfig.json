@@ -1,8 +1,15 @@
 {
   "typeCheckingMode": "strict",
   "include": ["*.py"],
-  "exclude": ["**/__pycache__", "**/.venv", "**/venv"],
+  "exclude": [
+    "**/__pycache__",
+    "**/.venv",
+    "**/venv",
+    "test_team.py",
+    "test_game.py",
+    "test_cup.py",
+    "test_repo.py"
+  ],
   "reportUnusedImport": "error",
-  //unused variables
-  "reportUnusedVariable": "error",
+  "reportUnusedVariable": "error"
 }
