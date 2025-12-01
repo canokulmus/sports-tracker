@@ -228,6 +228,62 @@ class Session(threading.Thread):
                         return {"status": "OK", "message": "Score updated"}
                     return {"status": "ERROR", "message": "Not a game or game not found"}
 
+            elif cmd == "CREATE_CUP":
+                c_type = req.get("cup_type")
+                t_ids = req.get("team_ids")
+                if not c_type or not t_ids:
+                    return {"status": "ERROR", "message": "Missing 'cup_type' or 'team_ids'"}
+
+                with repo_lock:
+                    # Resolve team IDs to Team objects
+                    teams = []
+                    for tid in t_ids:
+                        obj_data = repository._objects.get(int(tid))
+                        if not obj_data or not isinstance(obj_data['instance'], Team):
+                            return {"status": "ERROR", "message": f"Team ID {tid} not found or invalid"}
+                        teams.append(obj_data['instance'])
+
+                    try:
+                        # Manually create Cup to avoid 'type' parameter conflict in Repo.create
+                        from datetime import timedelta
+                        cup = Cup(teams=teams, type=c_type, interval=timedelta(days=1))
+
+                        # Manually register in repository
+                        cid = next(repository._id_counter)
+                        repository._objects[cid] = {
+                            "instance": cup,
+                            "attachment_count": 0,
+                            "users": []
+                        }
+
+                        # Attach user to the new Cup
+                        repository.attach(cid, self.user)
+                        self.attached_ids.append(cid)
+
+                    except ValueError as e:
+                        return {"status": "ERROR", "message": str(e)}
+
+                return {"status": "OK", "id": cid, "message": "Cup created"}
+
+            elif cmd == "GET_STANDINGS":
+                cid = req.get("id")
+                if cid is None:
+                    return {"status": "ERROR", "message": "Missing 'id'"}
+
+                with repo_lock:
+                    obj_data = repository._objects.get(int(cid))
+                    if not obj_data:
+                        return {"status": "ERROR", "message": "Object not found"}
+
+                    cup = obj_data['instance']
+                    if not isinstance(cup, Cup):
+                        return {"status": "ERROR", "message": "Object is not a cup"}
+
+                    # Calculate standings
+                    standings = cup.standings()
+
+                return {"status": "OK", "standings": standings}
+
             elif cmd == "SAVE":
                 save_state()
                 return {"status": "OK", "message": "State saved"}
