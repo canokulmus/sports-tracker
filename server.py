@@ -19,20 +19,19 @@ HOST = ''
 PORT = 8888
 SAVE_FILE = 'server_state.pkl'
 
-# Global Repository & Lock
+# Global Repository & Lock for thread-safe operations.
 repository = Repo()
 repo_lock = threading.RLock()
 
 
 class SocketObserver:
-    """
-    Observer that queues JSON messages.
-    """
+    """Observer that queues JSON messages for a client."""
 
     def __init__(self, message_queue: queue.Queue):
         self.message_queue = message_queue
 
     def update(self, game: Any) -> None:
+        """Constructs a game update notification and adds it to the queue."""
         try:
             # Construct a structured event payload
             payload = {
@@ -54,11 +53,12 @@ class SocketObserver:
 
 
 class Session(threading.Thread):
+    """Handles a single client connection."""
     def __init__(self, client_socket: socket.socket, client_address: Tuple[str, int]):
         super().__init__()
         self.client_socket = client_socket
         self.client_address = client_address
-        self.user = "Anonymous"
+        self.user = "Polat Alemdar"
 
         self.output_queue: queue.Queue[str | None] = queue.Queue()
         self.observer = SocketObserver(self.output_queue)
@@ -68,11 +68,11 @@ class Session(threading.Thread):
         self.running = True
 
     def notification_agent(self) -> None:
-        """Background thread to push JSON messages to the client."""
+        """Pushes messages from the output queue to the client socket."""
         while self.running:
             try:
                 msg = self.output_queue.get()
-                if msg is None:
+                if msg is None:  # Sentinel for stopping the thread
                     break
                 # Send with newline delimiter
                 self.client_socket.sendall(f"{msg}\n".encode('utf-8'))
@@ -80,35 +80,36 @@ class Session(threading.Thread):
                 break
 
     def run(self) -> None:
+        """Main loop for the client session."""
         print(f"Accepted connection from {self.client_address}")
 
-        # Start notification agent
+        # Start a background thread to send notifications.
         agent = threading.Thread(target=self.notification_agent, daemon=True)
         agent.start()
 
-        # Use a file-like object wrapper for easier line-by-line reading
+        # Use a file-like object for easier line-by-line reading.
         socket_file = self.client_socket.makefile('r', encoding='utf-8')
 
         try:
-            # Send welcome message as JSON
+            # Send a welcome message.
             welcome = {"type": "INFO", "message": "Connected to Sports Tracker (JSON Mode)"}
             self.client_socket.sendall(f"{json.dumps(welcome)}\n".encode('utf-8'))
 
             while True:
-                # Read line-by-line (blocking)
+                # Read line-by-line (blocking).
                 line = socket_file.readline()
                 if not line:
-                    break  # EOF
+                    break  # Client disconnected.
 
                 line = line.strip()
                 if not line:
                     continue
 
                 try:
+                    # Process JSON commands.
                     request = json.loads(line)
                     response = self.process_command(request)
                     if response:
-                        # Send response as JSON line
                         self.client_socket.sendall(f"{json.dumps(response)}\n".encode('utf-8'))
                 except json.JSONDecodeError:
                     err = {"status": "ERROR", "message": "Invalid JSON format"}
@@ -117,22 +118,20 @@ class Session(threading.Thread):
         except (ConnectionResetError, OSError):
             print(f"Connection lost from {self.client_address}")
         finally:
+            # Clean up resources.
             self.running = False
-            self.output_queue.put(None)
+            self.output_queue.put(None)  # Stop the agent.
             self.cleanup()
             self.client_socket.close()
             print(f"Session closed for {self.client_address}")
 
     def process_command(self, req: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Takes a dictionary (parsed JSON) and executes logic.
-        Returns a dictionary to be sent back.
-        """
+        """Parses and executes a command from the client."""
         cmd = req.get("command", "").upper()
 
         try:
             if cmd == "USER":
-                self.user = req.get("username", "Anonymous")
+                self.user = req.get("username", "Polat Alemdar")
                 return {"status": "OK", "message": f"User set to {self.user}"}
 
             elif cmd == "CREATE_TEAM":
@@ -158,7 +157,7 @@ class Session(threading.Thread):
                     if not h_data or not a_data:
                         return {"status": "ERROR", "message": "Teams not found"}
 
-                    # Create with dummy time for now
+                    # Create with current time.
                     from datetime import datetime
                     gid = repository.create(
                         type="game",
@@ -177,6 +176,7 @@ class Session(threading.Thread):
                     if oid not in repository._objects:
                         return {"status": "ERROR", "message": "Object not found"}
 
+                    # Attach user and observer to the object.
                     repository.attach(oid, self.user)
                     if oid not in self.attached_ids:
                         self.attached_ids.append(oid)
@@ -236,18 +236,22 @@ class Session(threading.Thread):
             return {"status": "ERROR", "message": f"Internal Error: {str(e)}"}
 
     def cleanup(self):
+        """Detaches observers and users from objects before session closes."""
         with repo_lock:
+            # Unwatch all watched objects.
             for oid in self.watched_ids:
                 if oid in repository._objects:
                     obj = repository._objects[oid]['instance']
                     if hasattr(obj, 'unwatch'):
                         obj.unwatch(self.observer)
+            # Detach user from all attached objects.
             for oid in self.attached_ids:
                 if oid in repository._objects:
                     repository.detach(oid, self.user)
 
 
 def load_state():
+    """Loads server state from a pickle file if it exists."""
     global repository
     if os.path.exists(SAVE_FILE):
         try:
@@ -255,10 +259,11 @@ def load_state():
                 repository = pickle.load(f)
             print("State loaded.")
         except:
-            print("New repository started.")
+            print("Could not load state. Starting new repository.")
 
 
 def save_state():
+    """Saves the current server state to a pickle file."""
     with repo_lock:
         with open(SAVE_FILE, 'wb') as f:
             pickle.dump(repository, f)
@@ -267,17 +272,21 @@ def save_state():
 
 if __name__ == "__main__":
     load_state()
+    # Set up the server socket.
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind((HOST, PORT))
     server.listen()
     print(f"JSON Server listening on {PORT}...")
     try:
+        # Main loop to accept new connections.
         while True:
             c, a = server.accept()
             Session(c, a).start()
     except KeyboardInterrupt:
+        print("\nServer shutting down.")
         pass
     finally:
+        # Save state and close the server socket on exit.
         save_state()
         server.close()
