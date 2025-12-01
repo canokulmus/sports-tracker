@@ -1,6 +1,7 @@
 import socket
 import threading
 import sys
+import json
 import os
 
 # Configuration
@@ -8,84 +9,148 @@ HOST = '127.0.0.1'
 PORT = 8888
 
 
-def receive_messages(sock):
+def receive_loop(sock, stop_event):
     """
-    Background thread: Listens for incoming messages (responses/notifications).
+    Reads newline-delimited JSON from the server and prints it nicely.
     """
-    while True:
+    # Create a file-like wrapper for easy readline()
+    sock_file = sock.makefile('r', encoding='utf-8')
+
+    while not stop_event.is_set():
         try:
-            # 1. Block until data arrives (Buffer size 4096 is generous for text)
-            data = sock.recv(4096)
+            # readline is blocking, but socket timeout or shutdown will break it
+            line = sock_file.readline()
+            if not line:
+                print("\n[!] Server closed connection.")
+                stop_event.set()
+                os._exit(0)  # Force exit main thread input
 
-            if not data:
-                print("\n[!] Server disconnected.")
-                # Force exit because the main thread is stuck in input()
-                os._exit(0)
+            try:
+                data = json.loads(line)
 
-            # 2. Decode bytes to string
-            message = data.decode('utf-8')
+                # --- PRETTY PRINTING ---
+                # Clear current input line to show message cleanly
+                sys.stdout.write("\r" + " " * 50 + "\r")
 
-            # 3. Print cleanly
-            # \r moves cursor to start of line to overwrite the user's prompt
-            # We print the message, then restore the prompt "> "
-            sys.stdout.write(f"\r{message}\n> ")
-            sys.stdout.flush()
+                if data.get("type") == "NOTIFICATION":
+                    # It's a game update!
+                    print(f"🔔 [GAME {data['game_id']}] UPDATE")
+                    print(f"   {data['home']} vs {data['away']}")
+                    print(f"   State: {data['state']} | Score: {data['score']['home']} - {data['score']['away']}")
+                elif data.get("status") == "ERROR":
+                    print(f"❌ Error: {data['message']}")
+                elif data.get("status") == "OK":
+                    print(f"✅ {data.get('message', 'Success')}")
+                    if "id" in data:
+                        print(f"   -> Object ID: {data['id']}")
+                else:
+                    # Generic print for other messages (like welcome)
+                    print(f"📥 {json.dumps(data, indent=2)}")
 
-        except OSError:
+                # Restore prompt
+                sys.stdout.write("> ")
+                sys.stdout.flush()
+
+            except json.JSONDecodeError:
+                print(f"\n[!] raw: {line.strip()}")
+
+        except (OSError, ValueError):
             break
 
 
-def send_command(sock, text):
+def parse_input_to_json(text):
     """
-    Encapsulates sending logic.
-    FUTURE TODO: Change this function to wrap 'text' in json.dumps() later.
+    Maps simple user text to the JSON protocol structure.
     """
-    if not text.strip():
-        return
+    parts = text.strip().split()
+    if not parts: return None
 
-    try:
-        # Currently: Raw text protocol
-        sock.sendall(text.encode('utf-8'))
+    cmd = parts[0].upper()
+    args = parts[1:]
 
-        # Future JSON Example:
-        # import json
-        # payload = json.dumps({"command": text.split()[0], "args": text.split()[1:]})
-        # sock.sendall(payload.encode('utf-8'))
+    payload = {"command": cmd}
 
-    except OSError:
-        print("[!] Failed to send.")
+    if cmd == "USER":
+        if len(args) < 1:
+            print("Usage: USER <name>")
+            return None
+        payload["username"] = args[0]
+
+    elif cmd == "CREATE_TEAM":
+        if len(args) < 1:
+            print("Usage: CREATE_TEAM <name>")
+            return None
+        payload["name"] = " ".join(args)
+
+    elif cmd == "CREATE_GAME":
+        if len(args) < 2:
+            print("Usage: CREATE_GAME <home_id> <away_id>")
+            return None
+        payload["home_id"] = args[0]
+        payload["away_id"] = args[1]
+
+    elif cmd == "WATCH":
+        if len(args) < 1:
+            print("Usage: WATCH <id>")
+            return None
+        payload["id"] = args[0]
+
+    elif cmd == "START":
+        if len(args) < 1:
+            print("Usage: START <id>")
+            return None
+        payload["id"] = args[0]
+
+    elif cmd == "SCORE":
+        if len(args) < 3:
+            print("Usage: SCORE <id> <points> <HOME/AWAY>")
+            return None
+        payload["id"] = args[0]
+        payload["points"] = args[1]
+        payload["side"] = args[2]
+
+    elif cmd == "SAVE":
+        pass  # No args needed
+
+    else:
+        # Pass through unknown commands just in case
+        pass
+
+    return payload
 
 
 def main():
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
     try:
-        print(f"Connecting to {HOST}:{PORT}...")
         client.connect((HOST, PORT))
     except ConnectionRefusedError:
-        print("[!] Connection failed. Is server.py running?")
+        print(f"Could not connect to {HOST}:{PORT}")
         return
 
-    # Start the background listener thread
-    listener = threading.Thread(target=receive_messages, args=(client,), daemon=True)
-    listener.start()
+    stop_event = threading.Event()
 
-    print("Connected. Type commands (e.g., USER Alice, WATCH 1). Type 'exit' to quit.")
+    # Start receiver thread
+    t = threading.Thread(target=receive_loop, args=(client, stop_event), daemon=True)
+    t.start()
 
-    # Main Loop: Handle User Input
+    print("Commands: USER, CREATE_TEAM, CREATE_GAME, WATCH, START, SCORE, SAVE")
+
     try:
-        while True:
-            # blocking input
-            msg = input("> ")
-
-            if msg.lower() == 'exit':
+        while not stop_event.is_set():
+            user_input = input("> ")
+            if user_input.lower() in ["exit", "quit"]:
                 break
 
-            send_command(client, msg)
+            payload = parse_input_to_json(user_input)
+            if payload:
+                # Send as NDJSON line
+                msg = json.dumps(payload) + "\n"
+                client.sendall(msg.encode('utf-8'))
 
     except KeyboardInterrupt:
         print("\nExiting...")
     finally:
+        stop_event.set()
         client.close()
 
 

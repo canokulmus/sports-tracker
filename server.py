@@ -4,346 +4,280 @@ import threading
 import pickle
 import os
 import queue
-from typing import Any, List
+import json
+from typing import Any, List, Dict, Tuple
 
-# Import your library classes
+# Import Phase 1 classes
 from repo import Repo
 from game import Game
 from team import Team
 from cup import Cup
 from constants import GameState
 
-# --- Global Shared State ---
-# Initialize the repository.
-# The load_state() function below will override this if a save file exists.
-repository = Repo()
-
-# Thread-safe lock for accessing the shared repository
-# CRITICAL: Any time you read/write to 'repository', use 'with repo_lock:'
-repo_lock = threading.RLock()
-
-# Configuration
+# --- Configuration & Globals ---
 HOST = ''
 PORT = 8888
 SAVE_FILE = 'server_state.pkl'
 
+# Global Repository & Lock
+repository = Repo()
+repo_lock = threading.RLock()
+
 
 class SocketObserver:
     """
-    Bridge between the Phase 1 Observer pattern and the TCP socket.
-    Instead of printing to stdout, it pushes messages to a thread-safe queue.
+    Observer that queues JSON messages.
     """
 
     def __init__(self, message_queue: queue.Queue):
         self.message_queue = message_queue
 
     def update(self, game: Any) -> None:
-        """
-        Called by the Game object when state changes.
-        """
-        # TODO: Format the notification message nicely.
-        # You might want to include a timestamp or specific event details.
         try:
-            msg = f"NOTIFICATION Game {game.id()} ({game.home().team_name} vs {game.away().team_name}): State={game.state.name}, Score={game.home_score}-{game.away_score}\n"
-            self.message_queue.put(msg)
+            # Construct a structured event payload
+            payload = {
+                "type": "NOTIFICATION",
+                "game_id": game.id(),
+                "home": game.home().team_name,
+                "away": game.away().team_name,
+                "state": game.state.name,
+                "score": {
+                    "home": game.home_score,
+                    "away": game.away_score
+                }
+            }
+            # Serialize to JSON string
+            self.message_queue.put(json.dumps(payload))
         except Exception as e:
-            # Fallback in case of error during string formatting
-            self.message_queue.put(f"NOTIFICATION Error formatting update: {e}\n")
+            error_payload = {"type": "ERROR", "message": f"Notification failed: {str(e)}"}
+            self.message_queue.put(json.dumps(error_payload))
 
 
 class Session(threading.Thread):
-    """
-    Handles a single client connection.
-    Responsible for reading commands (Input) and managing the notification agent (Output).
-    """
-
-    def __init__(self, client_socket: socket.socket, client_address):
+    def __init__(self, client_socket: socket.socket, client_address: Tuple[str, int]):
         super().__init__()
         self.client_socket = client_socket
         self.client_address = client_address
-        self.user = "Polat Alemdar"  # Default until USER command is received
+        self.user = "Anonymous"
 
-        # Queue for messages destined for this client (Notifications)
-        self.output_queue = queue.Queue()
-
-        # The observer instance specific to this session
+        self.output_queue: queue.Queue[str | None] = queue.Queue()
         self.observer = SocketObserver(self.output_queue)
 
-        # Track objects to clean up on disconnect
         self.watched_ids: List[int] = []
         self.attached_ids: List[int] = []
+        self.running = True
 
-    def notification_agent(self):
-        """
-        Runs in a separate thread (or essentially concurrently).
-        Blocks on the output_queue and sends messages to the socket whenever they appear.
-        """
-        while True:
+    def notification_agent(self) -> None:
+        """Background thread to push JSON messages to the client."""
+        while self.running:
             try:
-                # Block until a message is available
                 msg = self.output_queue.get()
-
-                # Sentinel value to stop the thread gracefully
                 if msg is None:
                     break
-
-                # Send data to socket
-                self.client_socket.sendall(msg.encode('utf-8'))
-
-            except Exception as e:
-                print(f"Error in notification agent for {self.client_address}: {e}")
+                # Send with newline delimiter
+                self.client_socket.sendall(f"{msg}\n".encode('utf-8'))
+            except (OSError, Exception):
                 break
 
-    def run(self):
-        """
-        Main loop for the session thread. Reads input from socket.
-        """
-        print(f"Connection from {self.client_address}")
+    def run(self) -> None:
+        print(f"Accepted connection from {self.client_address}")
 
-        # Start the notification thread for this session
-        notifier = threading.Thread(target=self.notification_agent, daemon=True)
-        notifier.start()
+        # Start notification agent
+        agent = threading.Thread(target=self.notification_agent, daemon=True)
+        agent.start()
+
+        # Use a file-like object wrapper for easier line-by-line reading
+        socket_file = self.client_socket.makefile('r', encoding='utf-8')
 
         try:
+            # Send welcome message as JSON
+            welcome = {"type": "INFO", "message": "Connected to Sports Tracker (JSON Mode)"}
+            self.client_socket.sendall(f"{json.dumps(welcome)}\n".encode('utf-8'))
+
             while True:
-                # TODO: Implement robust buffering if you expect partial packets.
-                # For this assignment, assuming commands fit in 1024 bytes is usually okay.
-                data = self.client_socket.recv(1024)
+                # Read line-by-line (blocking)
+                line = socket_file.readline()
+                if not line:
+                    break  # EOF
 
-                if not data:
-                    break  # Client disconnected
-
-                # Decode and strip whitespace
-                command_str = data.decode('utf-8').strip()
-                if not command_str:
+                line = line.strip()
+                if not line:
                     continue
 
-                # Process the command
-                response = self.process_command(command_str)
+                try:
+                    request = json.loads(line)
+                    response = self.process_command(request)
+                    if response:
+                        # Send response as JSON line
+                        self.client_socket.sendall(f"{json.dumps(response)}\n".encode('utf-8'))
+                except json.JSONDecodeError:
+                    err = {"status": "ERROR", "message": "Invalid JSON format"}
+                    self.client_socket.sendall(f"{json.dumps(err)}\n".encode('utf-8'))
 
-                # Send the synchronous response (e.g., "OK", "ERROR")
-                if response:
-                    self.client_socket.sendall(response.encode('utf-8'))
-
-        except ConnectionResetError:
-            print(f"Connection reset by {self.client_address}")
-        except Exception as e:
-            print(f"Session error for {self.client_address}: {e}")
+        except (ConnectionResetError, OSError):
+            print(f"Connection lost from {self.client_address}")
         finally:
-            self.cleanup()
-            # Stop the notifier thread
+            self.running = False
             self.output_queue.put(None)
+            self.cleanup()
             self.client_socket.close()
-            print(f"Connection closed for {self.client_address}")
+            print(f"Session closed for {self.client_address}")
 
-    def process_command(self, command_line: str) -> str:
+    def process_command(self, req: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Parses the command string and executes logic on the repository.
-        Returns a response string to be sent back to the client.
+        Takes a dictionary (parsed JSON) and executes logic.
+        Returns a dictionary to be sent back.
         """
-        parts = command_line.split()
-        if not parts:
-            return ""
-
-        cmd = parts[0].upper()
-        args = parts[1:]
-
-        # CRITICAL: All access to 'repository' must be inside the lock!
+        cmd = req.get("command", "").upper()
 
         try:
             if cmd == "USER":
-                if len(args) < 1: return "ERROR Usage: USER <username>\n"
-                self.user = args[0]
-                return f"OK Welcome {self.user}\n"
+                self.user = req.get("username", "Anonymous")
+                return {"status": "OK", "message": f"User set to {self.user}"}
 
-            # --- CREATION COMMANDS ---
             elif cmd == "CREATE_TEAM":
-                # Example: CREATE_TEAM Galatasaray
-                if len(args) < 1: return "ERROR Usage: CREATE_TEAM <name>\n"
+                name = req.get("name")
+                if not name: return {"status": "ERROR", "message": "Missing 'name'"}
 
                 with repo_lock:
-                    # TODO: Add logic to handle spaces in names if needed (e.g. joining args)
-                    team_name = " ".join(args)
-                    tid = repository.create(type="team", name=team_name)
-                    # Automatically attach creator? Optional.
+                    tid = repository.create(type="team", name=name)
                     repository.attach(tid, self.user)
                     self.attached_ids.append(tid)
-
-                return f"OK Team created with ID {tid}\n"
+                return {"status": "OK", "id": tid, "message": "Team created"}
 
             elif cmd == "CREATE_GAME":
-                # Example: CREATE_GAME 1 2 (HomeID AwayID)
-                if len(args) < 2: return "ERROR Usage: CREATE_GAME <home_id> <away_id>\n"
-
-                h_id, a_id = int(args[0]), int(args[1])
+                h_id = req.get("home_id")
+                a_id = req.get("away_id")
+                if h_id is None or a_id is None:
+                    return {"status": "ERROR", "message": "Missing team IDs"}
 
                 with repo_lock:
-                    # Retrieve Team objects first
-                    home_data = repository._objects.get(h_id)
-                    away_data = repository._objects.get(a_id)
+                    h_data = repository._objects.get(int(h_id))
+                    a_data = repository._objects.get(int(a_id))
 
-                    if not home_data or not away_data:
-                        return "ERROR Invalid Team IDs\n"
+                    if not h_data or not a_data:
+                        return {"status": "ERROR", "message": "Teams not found"}
 
+                    # Create with dummy time for now
+                    from datetime import datetime
                     gid = repository.create(
                         type="game",
-                        home=home_data['instance'],
-                        away=away_data['instance'],
-                        datetime=None  # TODO: Add datetime logic
+                        home=h_data['instance'],
+                        away=a_data['instance'],
+                        datetime=datetime.now()
                     )
-                return f"OK Game created with ID {gid}\n"
+                return {"status": "OK", "id": gid, "message": "Game created"}
 
-            # --- INTERACTION COMMANDS ---
             elif cmd == "WATCH":
-                # Example: WATCH 5
-                if len(args) < 1: return "ERROR Usage: WATCH <id>\n"
-                obj_id = int(args[0])
+                oid = req.get("id")
+                if oid is None: return {"status": "ERROR", "message": "Missing 'id'"}
 
                 with repo_lock:
-                    if obj_id not in repository._objects:
-                        return "ERROR Object not found\n"
+                    oid = int(oid)
+                    if oid not in repository._objects:
+                        return {"status": "ERROR", "message": "Object not found"}
 
-                    # 1. Attach via Repo (lifecycle management)
-                    repository.attach(obj_id, self.user)
-                    if obj_id not in self.attached_ids:
-                        self.attached_ids.append(obj_id)
+                    repository.attach(oid, self.user)
+                    if oid not in self.attached_ids:
+                        self.attached_ids.append(oid)
 
-                    # 2. Watch via Observer (notification management)
-                    obj_instance = repository._objects[obj_id]['instance']
-                    if hasattr(obj_instance, 'watch'):
-                        obj_instance.watch(self.observer)
-                        if obj_id not in self.watched_ids:
-                            self.watched_ids.append(obj_id)
-                        return f"OK Watching object {obj_id}\n"
-                    else:
-                        return "ERROR Object is not watchable (not a Game/Cup)\n"
+                    instance = repository._objects[oid]['instance']
+                    if hasattr(instance, 'watch'):
+                        instance.watch(self.observer)
+                        if oid not in self.watched_ids:
+                            self.watched_ids.append(oid)
+                        return {"status": "OK", "message": f"Watching {oid}"}
+                    return {"status": "ERROR", "message": "Object not watchable"}
 
             elif cmd == "START":
-                # Example: START 5
-                if len(args) < 1: return "ERROR Usage: START <game_id>\n"
-                gid = int(args[0])
+                gid = req.get("id")
+                if gid is None: return {"status": "ERROR", "message": "Missing 'id'"}
 
                 with repo_lock:
+                    gid = int(gid)
                     if gid not in repository._objects:
-                        return "ERROR Game not found\n"
-
+                        return {"status": "ERROR", "message": "Game not found"}
                     game = repository._objects[gid]['instance']
-                    if not isinstance(game, Game):
-                        return "ERROR Object is not a game\n"
-
-                    game.start()
-                return "OK Game started\n"
+                    if isinstance(game, Game):
+                        game.start()
+                        return {"status": "OK", "message": "Game started"}
+                    return {"status": "ERROR", "message": "Not a game"}
 
             elif cmd == "SCORE":
-                # Example: SCORE <game_id> <points> <Home/Away>
-                # TODO: Implement parsing logic for this
-                return "TODO: Implement SCORE command\n"
+                gid = req.get("id")
+                pts = req.get("points")
+                side = req.get("side", "").upper()
 
-            elif cmd == "PAUSE":
-                # TODO: Implement
-                return "TODO: Implement PAUSE\n"
+                if gid is None or pts is None or side not in ["HOME", "AWAY"]:
+                    return {"status": "ERROR", "message": "Invalid params"}
 
-            # --- SYSTEM COMMANDS ---
+                with repo_lock:
+                    gid = int(gid)
+                    if gid not in repository._objects:
+                        return {"status": "ERROR", "message": "Game not found"}
+                    game = repository._objects[gid]['instance']
+                    if isinstance(game, Game):
+                        team_obj = game.home() if side == "HOME" else game.away()
+                        # Phase 1 logic handles the update and notification
+                        game.score(int(pts), team_obj)
+                        return {"status": "OK", "message": "Score updated"}
+                    return {"status": "ERROR", "message": "Not a game"}
+
             elif cmd == "SAVE":
                 save_state()
-                return "OK State saved\n"
-
-            elif cmd == "HELP":
-                return "INFO Available: USER, CREATE_TEAM, CREATE_GAME, WATCH, START, SCORE, SAVE\n"
+                return {"status": "OK", "message": "State saved"}
 
             else:
-                return f"ERROR Unknown command: {cmd}\n"
+                return {"status": "ERROR", "message": f"Unknown command: {cmd}"}
 
-        except ValueError:
-            return "ERROR Invalid arguments (check numbers)\n"
+        except ValueError as e:
+            return {"status": "ERROR", "message": f"Value Error: {str(e)}"}
         except Exception as e:
-            return f"ERROR Internal processing error: {e}\n"
+            return {"status": "ERROR", "message": f"Internal Error: {str(e)}"}
 
     def cleanup(self):
-        """
-        Clean up resources: unwatch games, detach from repo objects.
-        This is crucial for the reference counting in Repo.delete().
-        """
-        print(f"Cleaning up session resources for {self.user}...")
-
         with repo_lock:
-            # 1. Unwatch objects (Observer pattern)
-            for obj_id in self.watched_ids:
-                try:
-                    if obj_id in repository._objects:
-                        instance = repository._objects[obj_id]['instance']
-                        if hasattr(instance, 'unwatch'):
-                            instance.unwatch(self.observer)
-                except Exception as e:
-                    print(f"Error unwatching {obj_id}: {e}")
-
-            # 2. Detach objects (Repo pattern)
-            for obj_id in self.attached_ids:
-                try:
-                    repository.detach(obj_id, self.user)
-                except Exception as e:
-                    print(f"Error detaching {obj_id}: {e}")
+            for oid in self.watched_ids:
+                if oid in repository._objects:
+                    obj = repository._objects[oid]['instance']
+                    if hasattr(obj, 'unwatch'):
+                        obj.unwatch(self.observer)
+            for oid in self.attached_ids:
+                if oid in repository._objects:
+                    repository.detach(oid, self.user)
 
 
 def load_state():
-    """Loads the repository state from disk if it exists."""
     global repository
     if os.path.exists(SAVE_FILE):
         try:
-            print(f"Loading state from {SAVE_FILE}...")
             with open(SAVE_FILE, 'rb') as f:
                 repository = pickle.load(f)
-            print("State loaded successfully.")
-        except Exception as e:
-            print(f"Failed to load state: {e}")
-            print("Starting with a fresh repository.")
+            print("State loaded.")
+        except:
+            print("New repository started.")
 
 
 def save_state():
-    """Saves the repository state to disk using pickle."""
-    # Acquire lock to ensure we don't save while the state is being modified
     with repo_lock:
-        try:
-            print(f"Saving state to {SAVE_FILE}...")
-            with open(SAVE_FILE, 'wb') as f:
-                pickle.dump(repository, f)
-            print("State saved successfully.")
-        except Exception as e:
-            print(f"Failed to save state: {e}")
-
-
-def main():
-    # Load previous state if available
-    load_state()
-
-    # Create server socket
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # Allow address reuse to avoid "Address already in use" errors on restart
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-    # Optional: Get port from command line args
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else PORT
-
-    try:
-        server.bind((HOST, port))
-        server.listen(10)  # Backlog of 10 connections
-        print(f"Server listening on port {port}...")
-        print("Press Ctrl+C to stop.")
-
-        while True:
-            # Accept new connections
-            client_sock, addr = server.accept()
-
-            # Start a new session thread for this client
-            session = Session(client_sock, addr)
-            session.start()
-
-    except KeyboardInterrupt:
-        print("\nServer stopping...")
-    finally:
-        save_state()
-        server.close()
+        with open(SAVE_FILE, 'wb') as f:
+            pickle.dump(repository, f)
+        print("State saved.")
 
 
 if __name__ == "__main__":
-    main()
+    load_state()
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind((HOST, PORT))
+    server.listen()
+    print(f"JSON Server listening on {PORT}...")
+    try:
+        while True:
+            c, a = server.accept()
+            Session(c, a).start()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        save_state()
+        server.close()
