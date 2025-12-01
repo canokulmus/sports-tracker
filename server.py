@@ -7,6 +7,16 @@ import queue
 import json
 from typing import Any, List, Dict, Tuple
 
+# This script implements a multithreaded TCP server for the Sports Tracker service,
+# as per the Phase 2 requirements.
+#
+# Architecture:
+# - A main thread listens for and accepts new TCP connections.
+# - For each client, a new `Session` thread is created to handle all communication.
+# - Communication is done via a JSON-based protocol over newline-delimited messages (NDJSON).
+# - A global `repository` object stores all shared data (teams, games, etc.).
+# - A `threading.RLock` is used to ensure thread-safe access to the shared repository.
+
 # Import Phase 1 classes
 from repo import Repo
 from game import Game
@@ -15,25 +25,30 @@ from cup import Cup
 from constants import GameState
 
 # --- Configuration & Globals ---
-HOST = ''
+HOST = ''  # Listen on all available interfaces.
 PORT = 8888
-SAVE_FILE = 'server_state.pkl'
+SAVE_FILE = 'server_state.pkl'  # File for object persistence.
 
-# Global Repository & Lock for thread-safe operations.
+# The global repository holds the application's state. It is shared across all threads.
+# The `repo_lock` is crucial to prevent race conditions when multiple clients
+# modify the repository concurrently.
 repository = Repo()
 repo_lock = threading.RLock()
 
 
 class SocketObserver:
-    """Observer that queues JSON messages for a client."""
+    """
+    Implements the Observer pattern. When a watched object (e.g., a Game)
+    is updated, its `update` method is called. This observer's role is to
+    format the update as a JSON notification and put it into a session-specific queue.
+    """
 
     def __init__(self, message_queue: queue.Queue):
         self.message_queue = message_queue
 
     def update(self, game: Any) -> None:
-        """Constructs a game update notification and adds it to the queue."""
+        """Constructs a game update notification and adds it to the client's message queue."""
         try:
-            # Construct a structured event payload
             payload = {
                 "type": "NOTIFICATION",
                 "game_id": game.id(),
@@ -45,7 +60,6 @@ class SocketObserver:
                     "away": game.away_score
                 }
             }
-            # Serialize to JSON string
             self.message_queue.put(json.dumps(payload))
         except Exception as e:
             error_payload = {"type": "ERROR", "message": f"Notification failed: {str(e)}"}
@@ -53,60 +67,65 @@ class SocketObserver:
 
 
 class Session(threading.Thread):
-    """Handles a single client connection."""
+    """
+    Represents a single client session. Each session runs in its own thread.
+    It uses a two-thread model internally:
+    1. `run()`: The main thread for this session, blocking on `socket.readline()` to read commands.
+    2. `notification_agent()`: A background thread that sends queued messages to the client.
+    """
     def __init__(self, client_socket: socket.socket, client_address: Tuple[str, int]):
         super().__init__()
         self.client_socket = client_socket
         self.client_address = client_address
-        self.user = "Polat Alemdar"
+        self.user = "Anonymous"  # Default user, can be changed with the USER command.
 
+        # This queue is the bridge between the game logic (which calls observer.update)
+        # and the notification agent (which sends to the socket). This is a suggested
+        # design in the project description to handle asynchronous notifications.
         self.output_queue: queue.Queue[str | None] = queue.Queue()
         self.observer = SocketObserver(self.output_queue)
 
-        self.watched_ids: List[int] = []
-        self.attached_ids: List[int] = []
+        self.watched_ids: List[int] = []  # IDs of objects this session is watching.
+        self.attached_ids: List[int] = [] # IDs of objects this session has interacted with.
         self.running = True
 
     def notification_agent(self) -> None:
-        """Pushes messages from the output queue to the client socket."""
+        """
+        The "notification agent" required by the project description.
+        It runs in a separate thread, blocking on the `output_queue`. When a message
+        appears, it sends it to the client. This decouples sending from receiving.
+        """
         while self.running:
             try:
                 msg = self.output_queue.get()
-                if msg is None:  # Sentinel for stopping the thread
+                if msg is None:  # A `None` message is a sentinel to stop the thread.
                     break
-                # Send with newline delimiter
                 self.client_socket.sendall(f"{msg}\n".encode('utf-8'))
             except (OSError, Exception):
-                break
+                break # Stop if the socket is closed.
 
     def run(self) -> None:
-        """Main loop for the client session."""
+        """Main loop for the client session. Handles command processing."""
         print(f"Accepted connection from {self.client_address}")
 
-        # Start a background thread to send notifications.
+        # Start the background thread for sending notifications.
         agent = threading.Thread(target=self.notification_agent, daemon=True)
         agent.start()
 
-        # Use a file-like object for easier line-by-line reading.
+        # Wrap the socket in a file-like object for convenient line-by-line reading.
         socket_file = self.client_socket.makefile('r', encoding='utf-8')
 
         try:
-            # Send a welcome message.
             welcome = {"type": "INFO", "message": "Connected to Sports Tracker (JSON Mode)"}
             self.client_socket.sendall(f"{json.dumps(welcome)}\n".encode('utf-8'))
 
-            while True:
-                # Read line-by-line (blocking).
-                line = socket_file.readline()
-                if not line:
-                    break  # Client disconnected.
-
+            # Block and read commands line-by-line.
+            for line in socket_file:
                 line = line.strip()
                 if not line:
                     continue
 
                 try:
-                    # Process JSON commands.
                     request = json.loads(line)
                     response = self.process_command(request)
                     if response:
@@ -118,27 +137,27 @@ class Session(threading.Thread):
         except (ConnectionResetError, OSError):
             print(f"Connection lost from {self.client_address}")
         finally:
-            # Clean up resources.
+            # On disconnect, perform cleanup.
             self.running = False
-            self.output_queue.put(None)  # Stop the agent.
+            self.output_queue.put(None)  # Signal the notification agent to exit.
             self.cleanup()
             self.client_socket.close()
             print(f"Session closed for {self.client_address}")
 
     def process_command(self, req: Dict[str, Any]) -> Dict[str, Any]:
-        """Parses and executes a command from the client."""
+        """Parses the JSON request and executes the corresponding action."""
         cmd = req.get("command", "").upper()
 
         try:
             if cmd == "USER":
-                self.user = req.get("username", "Polat Alemdar")
+                self.user = req.get("username", "Anonymous")
                 return {"status": "OK", "message": f"User set to {self.user}"}
 
             elif cmd == "CREATE_TEAM":
                 name = req.get("name")
                 if not name: return {"status": "ERROR", "message": "Missing 'name'"}
 
-                with repo_lock:
+                with repo_lock: # Ensure thread-safe creation.
                     tid = repository.create(type="team", name=name)
                     repository.attach(tid, self.user)
                     self.attached_ids.append(tid)
@@ -153,11 +172,9 @@ class Session(threading.Thread):
                 with repo_lock:
                     h_data = repository._objects.get(int(h_id))
                     a_data = repository._objects.get(int(a_id))
-
                     if not h_data or not a_data:
                         return {"status": "ERROR", "message": "Teams not found"}
 
-                    # Create with current time.
                     from datetime import datetime
                     gid = repository.create(
                         type="game",
@@ -176,11 +193,7 @@ class Session(threading.Thread):
                     if oid not in repository._objects:
                         return {"status": "ERROR", "message": "Object not found"}
 
-                    # Attach user and observer to the object.
-                    repository.attach(oid, self.user)
-                    if oid not in self.attached_ids:
-                        self.attached_ids.append(oid)
-
+                    # Attach this session's observer to the game object.
                     instance = repository._objects[oid]['instance']
                     if hasattr(instance, 'watch'):
                         instance.watch(self.observer)
@@ -194,34 +207,26 @@ class Session(threading.Thread):
                 if gid is None: return {"status": "ERROR", "message": "Missing 'id'"}
 
                 with repo_lock:
-                    gid = int(gid)
-                    if gid not in repository._objects:
-                        return {"status": "ERROR", "message": "Game not found"}
-                    game = repository._objects[gid]['instance']
+                    game = repository._objects.get(int(gid), {}).get('instance')
                     if isinstance(game, Game):
-                        game.start()
+                        game.start() # This will trigger a notification to all watchers.
                         return {"status": "OK", "message": "Game started"}
-                    return {"status": "ERROR", "message": "Not a game"}
+                    return {"status": "ERROR", "message": "Not a game or game not found"}
 
             elif cmd == "SCORE":
                 gid = req.get("id")
                 pts = req.get("points")
                 side = req.get("side", "").upper()
-
                 if gid is None or pts is None or side not in ["HOME", "AWAY"]:
                     return {"status": "ERROR", "message": "Invalid params"}
 
                 with repo_lock:
-                    gid = int(gid)
-                    if gid not in repository._objects:
-                        return {"status": "ERROR", "message": "Game not found"}
-                    game = repository._objects[gid]['instance']
+                    game = repository._objects.get(int(gid), {}).get('instance')
                     if isinstance(game, Game):
                         team_obj = game.home() if side == "HOME" else game.away()
-                        # Phase 1 logic handles the update and notification
-                        game.score(int(pts), team_obj)
+                        game.score(int(pts), team_obj) # Triggers notification.
                         return {"status": "OK", "message": "Score updated"}
-                    return {"status": "ERROR", "message": "Not a game"}
+                    return {"status": "ERROR", "message": "Not a game or game not found"}
 
             elif cmd == "SAVE":
                 save_state()
@@ -230,63 +235,74 @@ class Session(threading.Thread):
             else:
                 return {"status": "ERROR", "message": f"Unknown command: {cmd}"}
 
-        except ValueError as e:
-            return {"status": "ERROR", "message": f"Value Error: {str(e)}"}
+        except (ValueError, KeyError) as e:
+            return {"status": "ERROR", "message": f"Invalid parameter or ID: {str(e)}"}
         except Exception as e:
-            return {"status": "ERROR", "message": f"Internal Error: {str(e)}"}
+            return {"status": "ERROR", "message": f"Internal Server Error: {str(e)}"}
 
     def cleanup(self):
-        """Detaches observers and users from objects before session closes."""
+        """
+        Crucial for graceful shutdown. Detaches this session's observer from all
+        watched objects to prevent the server from trying to send notifications
+        to a closed connection.
+        """
         with repo_lock:
-            # Unwatch all watched objects.
             for oid in self.watched_ids:
                 if oid in repository._objects:
                     obj = repository._objects[oid]['instance']
                     if hasattr(obj, 'unwatch'):
                         obj.unwatch(self.observer)
-            # Detach user from all attached objects.
             for oid in self.attached_ids:
                 if oid in repository._objects:
                     repository.detach(oid, self.user)
 
 
 def load_state():
-    """Loads server state from a pickle file if it exists."""
+    """
+    Implements persistency by loading the entire repository from a pickle file.
+    This is done once at server startup.
+    """
     global repository
     if os.path.exists(SAVE_FILE):
         try:
             with open(SAVE_FILE, 'rb') as f:
                 repository = pickle.load(f)
-            print("State loaded.")
-        except:
-            print("Could not load state. Starting new repository.")
+            print("Server state loaded from 'server_state.pkl'.")
+        except Exception as e:
+            print(f"Could not load state: {e}. Starting with a new repository.")
 
 
 def save_state():
-    """Saves the current server state to a pickle file."""
+    """
+    Implements persistency by saving the entire repository to a pickle file.
+    This can be triggered by a client command or on server shutdown.
+    """
     with repo_lock:
-        with open(SAVE_FILE, 'wb') as f:
-            pickle.dump(repository, f)
-        print("State saved.")
+        try:
+            with open(SAVE_FILE, 'wb') as f:
+                pickle.dump(repository, f)
+            print("Server state saved to 'server_state.pkl'.")
+        except Exception as e:
+            print(f"Error saving state: {e}")
 
 
 if __name__ == "__main__":
     load_state()
-    # Set up the server socket.
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind((HOST, PORT))
     server.listen()
-    print(f"JSON Server listening on {PORT}...")
+    print(f"JSON Server listening on {HOST}:{PORT}...")
+
     try:
-        # Main loop to accept new connections.
+        # The main server loop. It does nothing but accept new connections
+        # and hand them off to a new `Session` thread.
         while True:
-            c, a = server.accept()
-            Session(c, a).start()
+            client_socket, client_address = server.accept()
+            Session(client_socket, client_address).start()
     except KeyboardInterrupt:
         print("\nServer shutting down.")
-        pass
     finally:
-        # Save state and close the server socket on exit.
+        # Ensure state is saved on shutdown.
         save_state()
         server.close()
