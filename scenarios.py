@@ -307,46 +307,116 @@ def run_league_scenario():
     print("-" * 60 + "\n")
 
 
-# --- SCENARIO 3: ELIMINATION TOURNAMENT ---
+# --- SCENARIO 3: ELIMINATION TOURNAMENT (KNOCKOUT) ---
 def run_elimination_scenario():
-    print("\n" + "=" * 50)
-    print("SCENARIO 3: ELIMINATION CUP")
-    print("Testing: Bracket logic over TCP")
-    print("=" * 50 + "\n")
+    print("\n" + "=" * 60)
+    print("SCENARIO 3: ELIMINATION CUP - KNOCKOUT SIMULATION")
+    print("Testing: Create 8-Team Bracket -> Play QF/SF/Finals -> Verify Champion")
+    print("=" * 60 + "\n")
 
-    actions = [
-        {"payload": {"command": "USER", "username": "ElimAdmin"}},
-        {"payload": {"command": "CREATE_TEAM", "name": "E-Team 1"}, "save_id": "e_t1"},
-        {"payload": {"command": "CREATE_TEAM", "name": "E-Team 2"}, "save_id": "e_t2"},
-        {"payload": {"command": "CREATE_TEAM", "name": "E-Team 3"}, "save_id": "e_t3"},
-        {"payload": {"command": "CREATE_TEAM", "name": "E-Team 4"}, "save_id": "e_t4"},
+    # 1. Setup: Create 8 Teams for a standard Quarter-Final start
+    print("[1/3] Initializing Elimination Tournament...")
+    setup_actions = [{"payload": {"command": "USER", "username": "ElimAdmin"}}]
 
-        {"payload": {"command": "CREATE_CUP", "cup_type": "ELIMINATION",
-                     "team_ids": ["$e_t1", "$e_t2", "$e_t3", "$e_t4"]}, "save_id": "elim_id"},
-        {"payload": {"command": "GET_STANDINGS", "id": "$elim_id"}}
-    ]
+    team_ids = []
+    # Create 8 teams (E-Team 1 to E-Team 8)
+    for i in range(1, 9):
+        tid = f"e_t{i}"
+        setup_actions.append({
+            "payload": {"command": "CREATE_TEAM", "name": f"E-Team {i}"},
+            "save_id": tid
+        })
+        team_ids.append(f"${tid}")
 
-    t = TestClient("ElimAdmin", actions)
-    t.start();
-    t.join()
+    setup_actions.append({
+        "payload": {"command": "CREATE_CUP", "cup_type": "ELIMINATION", "team_ids": team_ids},
+        "save_id": "elim_id"
+    })
+
+    t_setup = TestClient("ElimAdmin", setup_actions)
+    t_setup.start()
+    t_setup.join()
+
+    # 2. Logic: Fetch the bracket games
+    print("\n[2/3] Fetching Bracket...")
+    try:
+        cup_id = SHARED_CONTEXT["elim_id"]
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((HOST, PORT))
+        s.sendall(json.dumps({"command": "GET_CUP_GAMES", "id": cup_id}).encode('utf-8') + b"\n")
+        s.makefile().readline()  # Skip info
+        response = json.loads(s.makefile().readline())
+        game_ids = response.get("game_ids", [])
+        print(f"      Bracket generated {len(game_ids)} games: {game_ids}")
+        s.close()
+    except Exception as e:
+        print(f"      ❌ Failed to fetch bracket: {e}")
+        return
+
+    # 3. Action: Play the Knockout Stages
+    print(f"\n[3/3] Simulating Knockout Stages...")
+
+    # We play games in ID order. In a generated bracket,
+    # IDs usually follow the flow (QF -> Semis -> Final) or creation order.
+    # We'll play all of them.
+
+    knockout_actions = [{"payload": {"command": "USER", "username": "Umpire"}}]
+    knockout_actions.append({"payload": {"command": "WATCH", "id": "$elim_id"}})
+
+    import random
+    for i, gid in enumerate(game_ids):
+        # Determine round based on game index (for 8 teams: 0-3=QF, 4-5=SF, 6=Final)
+        if i < 4:
+            stage = "Quarter-Final"
+        elif i < 6:
+            stage = "Semi-Final"
+        else:
+            stage = "GRAND FINAL"
+
+        knockout_actions.append({"wait": 0.1})
+        knockout_actions.append({"payload": {"command": "START", "id": gid}})
+
+        # Decide a winner (High score vs Low score)
+        # We force a winner to avoid draws in elimination
+        winner_score = random.randint(3, 5)
+        loser_score = random.randint(0, 2)
+
+        knockout_actions.append({"payload": {"command": "SCORE", "id": gid, "points": winner_score, "side": "HOME"}})
+        knockout_actions.append({"payload": {"command": "SCORE", "id": gid, "points": loser_score, "side": "AWAY"}})
+        knockout_actions.append({"payload": {"command": "END", "id": gid}})
+
+    # Get final bracket results
+    knockout_actions.append({"payload": {"command": "GET_STANDINGS", "id": "$elim_id"}})
+
+    t_ko = TestClient("KnockoutSim", knockout_actions)
+    t_ko.start()
+    t_ko.join()
+
+    print("\n" + "-" * 60)
+    print("SCENARIO COMPLETE. Verify that:")
+    print(f"1. All {len(game_ids)} games were played.")
+    print("2. Notifications show progression (QF -> Semi -> Final).")
+    print("3. Standings above show a team reaching 'Round 3' (The Champion).")
+    print("-" * 60 + "\n")
 
 
-# --- SCENARIO 4: GROUP STAGE TRANSITION ---
+# --- SCENARIO 4: GROUP STAGE TRANSITION & PLAYOFFS ---
 def run_group_transition_scenario():
-    print("\n" + "=" * 50)
+    print("\n" + "=" * 60)
     print("SCENARIO 4: GROUP TO PLAYOFF TRANSITION")
-    print("Testing: Playing all group games and triggering playoffs.")
-    print("=" * 50 + "\n")
+    print("Testing: Group Stage -> Standings -> Playoff Generation -> Knockout Phase")
+    print("=" * 60 + "\n")
 
-    # 1. Setup: Create 8 teams (Enough for 4 groups of 2)
+    # 1. Setup: Create 8 teams (2 teams per group with default 4 groups)
+    print("[1/4] Initializing Group Tournament...")
     setup_actions = [{"payload": {"command": "USER", "username": "GroupAdmin"}}]
 
     team_ids = []
-    # Create 8 teams so we get 2 teams per group (4 groups default) -> 1 game per group
+    # Creating 8 teams ensures we have populated groups (Teams A-H)
     for i in range(1, 9):
         t_id = f"g_t{i}"
         setup_actions.append({
-            "payload": {"command": "CREATE_TEAM", "name": f"G-Team {i}"},
+            "payload": {"command": "CREATE_TEAM", "name": f"Nation-{i}"},
             "save_id": t_id
         })
         team_ids.append(f"${t_id}")
@@ -356,53 +426,127 @@ def run_group_transition_scenario():
         "save_id": "group_cup"
     })
 
-    # Run setup
-    client = TestClient("Setup", setup_actions)
-    client.start()
-    client.join()
+    t_setup = TestClient("Setup", setup_actions)
+    t_setup.start()
+    t_setup.join()
 
-    # 2. Dynamic Play: Fetch games and play them all
-    print("[Logic] Fetching group games to simulate matches...")
+    # 2. Logic: Fetch Group Games
+    print("\n[2/4] Fetching Group Stage Schedule...")
+    group_game_ids = []
+    try:
+        cup_id = SHARED_CONTEXT["group_cup"]
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((HOST, PORT))
+        s.sendall(json.dumps({"command": "GET_CUP_GAMES", "id": cup_id}).encode('utf-8') + b"\n")
+        s.makefile().readline()
+        resp = json.loads(s.makefile().readline())
+        group_game_ids = resp.get("game_ids", [])
+        s.close()
+        print(f"      Found {len(group_game_ids)} group games to play.")
+    except Exception as e:
+        print(f"      ❌ Critical Error fetching games: {e}")
+        return
 
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((HOST, PORT))
-    s.sendall(json.dumps({"command": "GET_CUP_GAMES", "id": SHARED_CONTEXT["group_cup"]}).encode() + b"\n")
-    s.makefile().readline()  # Skip info
-    resp = json.loads(s.makefile().readline())
-    game_ids = resp.get("game_ids", [])
-    s.close()
+    # 3. Play Group Stage
+    print(f"\n[3/4] Simulating Group Stage ({len(group_game_ids)} matches)...")
 
-    print(f"[Logic] Found {len(game_ids)} group games. Playing them now...")
+    group_play_actions = [{"payload": {"command": "USER", "username": "Referee"}}]
+    # Watch to see the live updates
+    group_play_actions.append({"payload": {"command": "WATCH", "id": "$group_cup"}})
 
-    play_actions = [{"payload": {"command": "USER", "username": "Referee"}}]
-    for gid in game_ids:
-        play_actions.append({"payload": {"command": "START", "id": gid}})
-        play_actions.append({"payload": {"command": "SCORE", "id": gid, "points": 3, "side": "HOME"}})
-        # We rely on the internal logic that the game is 'played' enough for standings
+    import random
+    for gid in group_game_ids:
+        # Random scores to create a mix of wins/losses/draws
+        s1 = random.randint(0, 3)
+        s2 = random.randint(0, 3)
 
-    # 3. Trigger Playoffs
-    play_actions.append({"wait": 1})
-    play_actions.append({"payload": {"command": "GENERATE_PLAYOFFS", "id": "$group_cup"}})
+        group_play_actions.append({"payload": {"command": "START", "id": gid}})
+        if s1 > 0:
+            group_play_actions.append({"payload": {"command": "SCORE", "id": gid, "points": s1, "side": "HOME"}})
+        if s2 > 0:
+            group_play_actions.append({"payload": {"command": "SCORE", "id": gid, "points": s2, "side": "AWAY"}})
+        group_play_actions.append({"payload": {"command": "END", "id": gid}})
+        # Tiny sleep to ensure logs don't overlap too much
+        group_play_actions.append({"wait": 0.1})
 
-    player = TestClient("Referee", play_actions)
-    player.start()
-    player.join()
+    t_group_play = TestClient("GroupStage", group_play_actions)
+    t_group_play.start()
+    t_group_play.join()
+
+    # 4. Trigger Playoffs and Play Them
+    print("\n[4/4] Generating & Playing Playoffs...")
+
+    # We use a raw socket query again to compare game counts before/after
+    # This proves the server actually created new game objects
+    playoff_actions = [
+        {"payload": {"command": "USER", "username": "TournamentDirector"}},
+        {"payload": {"command": "GENERATE_PLAYOFFS", "id": "$group_cup"}}
+    ]
+
+    t_gen = TestClient("Director", playoff_actions)
+    t_gen.start()
+    t_gen.join()
+
+    # Fetch the NEW list of games
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((HOST, PORT))
+        s.sendall(json.dumps({"command": "GET_CUP_GAMES", "id": cup_id}).encode('utf-8') + b"\n")
+        s.makefile().readline()
+        resp = json.loads(s.makefile().readline())
+        all_game_ids = resp.get("game_ids", [])
+        s.close()
+
+        # Filter out the group games we already played
+        playoff_game_ids = [gid for gid in all_game_ids if gid not in group_game_ids]
+        print(f"      🏆 Playoffs Generated! {len(playoff_game_ids)} new knockout games created.")
+    except Exception:
+        playoff_game_ids = []
+
+    # Simulate the Playoff Matches
+    if playoff_game_ids:
+        finals_actions = [{"payload": {"command": "USER", "username": "FinalsRef"}}]
+        for gid in playoff_game_ids:
+            finals_actions.append({"payload": {"command": "START", "id": gid}})
+            # High stakes scoring!
+            finals_actions.append(
+                {"payload": {"command": "SCORE", "id": gid, "points": random.randint(1, 5), "side": "HOME"}})
+            finals_actions.append({"payload": {"command": "END", "id": gid}})
+            finals_actions.append({"wait": 0.1})
+
+        t_finals = TestClient("Playoffs", finals_actions)
+        t_finals.start()
+        t_finals.join()
+
+    print("\n" + "-" * 60)
+    print("SCENARIO COMPLETE. Success Criteria:")
+    print("1. Group games played -> Scores updated -> Games Ended.")
+    print("2. 'Playoffs Generated' message appeared with new game count.")
+    print("3. Playoff games (Winner of X vs Winner of Y) were played.")
+    print("-" * 60 + "\n")
 
 
-# --- SCENARIO 5: PERSISTENCE CHECK ---
+# --- SCENARIO 5: PERSISTENCE & RECOVERY ---
 def run_persistence_scenario():
-    print("\n" + "=" * 50)
+    print("\n" + "=" * 60)
     print("SCENARIO 5: PERSISTENCE & RECOVERY")
-    print("Testing: Save state, (Simulated) Restart, Verify Data.")
-    print("=" * 50 + "\n")
+    print("Testing: Save Running Game -> Restart Server -> Verify Score/State Preserved")
+    print("=" * 60 + "\n")
 
-    # Step 1: Create Data (Teams AND a Game) and Save
+    # 1. Seed Data: Create a game, START it, and SCORE points
+    print("[1/2] Seeding Data (Creating & Modifying State)...")
     seed_actions = [
         {"payload": {"command": "USER", "username": "Saver"}},
-        {"payload": {"command": "CREATE_TEAM", "name": "Persistent FC"}, "save_id": "p_t1"},
-        {"payload": {"command": "CREATE_TEAM", "name": "Immutable Utd"}, "save_id": "p_t2"},
-        # Create a Game, because Games are watchable
+        {"payload": {"command": "CREATE_TEAM", "name": "Legends FC"}, "save_id": "p_t1"},
+        {"payload": {"command": "CREATE_TEAM", "name": "Mythic Utd"}, "save_id": "p_t2"},
         {"payload": {"command": "CREATE_GAME", "home_id": "$p_t1", "away_id": "$p_t2"}, "save_id": "p_game"},
+
+        # Modify state so we verify more than just existence
+        {"payload": {"command": "START", "id": "$p_game"}},
+        {"payload": {"command": "SCORE", "id": "$p_game", "points": 10, "side": "HOME"}},
+        {"payload": {"command": "SCORE", "id": "$p_game", "points": 5, "side": "AWAY"}},
+
+        # Save to disk
         {"payload": {"command": "SAVE"}}
     ]
 
@@ -410,21 +554,37 @@ def run_persistence_scenario():
     c1.start()
     c1.join()
 
-    print("\n   ⚠️  ACTION REQUIRED: Restart the Server NOW to test persistence.")
-    print("   ⚠️  (Stop 'server.py', then run it again)")
+    print("\n" + "!" * 60)
+    print("   ACTION REQUIRED: Restart the Server NOW.")
+    print("   1. Stop 'server.py' (Ctrl+C)")
+    print("   2. Run 'python server.py' again")
+    print("   3. Come back here and press ENTER")
+    print("!" * 60)
+    input("   >> Press ENTER once Server is back online: ")
 
-    # --- FIX: Use input to wait indefinitely ---
-    input("   ⚠️  Press ENTER here once the server is back online >> ")
-
-    # Step 2: Connect and Verify
+    # 2. Verify Data: Connect and check if the score is 10-5
+    print("\n[2/2] Verifying Persistence...")
     verify_actions = [
         {"payload": {"command": "USER", "username": "Verifier"}},
-        {"payload": {"command": "WATCH", "id": "$p_game"}}
+        # Watch triggers a notification if we modify state, or we can just infer from a new score
+        {"payload": {"command": "WATCH", "id": "$p_game"}},
+
+        # Score 0 to trigger a notification with the CURRENT total score
+        {"payload": {"command": "SCORE", "id": "$p_game", "points": 0, "side": "HOME"}},
+        {"wait": 2}
     ]
 
     c2 = TestClient("Verifier", verify_actions)
     c2.start()
     c2.join()
+
+    print("\n" + "-" * 60)
+    print("SCENARIO COMPLETE. Verification:")
+    print("1. Look at the [Verifier] notification above.")
+    print("2. Did it show 'Legends FC' vs 'Mythic Utd'?")
+    print("3. Was the score 10 - 5? (If it's 0-0, persistence failed).")
+    print("-" * 60 + "\n")
+
 
 if __name__ == "__main__":
     run_concurrency_scenario()

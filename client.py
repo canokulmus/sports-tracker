@@ -101,6 +101,15 @@ def parse_input_to_json(text):
         payload["home_id"] = args[0]
         payload["away_id"] = args[1]
 
+    elif cmd == "CREATE_CUP":
+        if len(args) < 3:
+            print("Usage: CREATE_CUP <type> <team_id1> <team_id2> ...")
+            print("Types: LEAGUE, ELIMINATION, GROUP")
+            return None
+        payload["cup_type"] = args[0].upper()
+        # Takes all remaining arguments as team IDs
+        payload["team_ids"] = args[1:]
+
     elif cmd == "WATCH":
         if len(args) < 1:
             print("Usage: WATCH <id>")
@@ -113,19 +122,43 @@ def parse_input_to_json(text):
             return None
         payload["id"] = args[0]
 
+    elif cmd == "END":
+        if len(args) < 1:
+            print("Usage: END <id>")
+            return None
+        payload["id"] = args[0]
+
     elif cmd == "SCORE":
         if len(args) < 3:
             print("Usage: SCORE <id> <points> <HOME/AWAY>")
             return None
         payload["id"] = args[0]
         payload["points"] = args[1]
-        payload["side"] = args[2]
+        payload["side"] = args[2].upper()
+
+    elif cmd == "GET_STANDINGS":
+        if len(args) < 1:
+            print("Usage: GET_STANDINGS <cup_id>")
+            return None
+        payload["id"] = args[0]
+
+    elif cmd == "GET_CUP_GAMES":
+        if len(args) < 1:
+            print("Usage: GET_CUP_GAMES <cup_id>")
+            return None
+        payload["id"] = args[0]
+
+    elif cmd == "GENERATE_PLAYOFFS":
+        if len(args) < 1:
+            print("Usage: GENERATE_PLAYOFFS <cup_id>")
+            return None
+        payload["id"] = args[0]
 
     elif cmd == "SAVE":
         pass  # No arguments needed for SAVE.
 
     else:
-        # Allow unrecognized commands to be sent, in case the server supports them.
+        # Allow unrecognized commands to be sent raw, or handled by server defaults
         pass
 
     return payload
@@ -147,7 +180,19 @@ def main():
     t.start()
 
     print("Connected to Sports Tracker. Available commands:")
-    print("USER, CREATE_TEAM, CREATE_GAME, WATCH, START, SCORE, SAVE, exit")
+    print("  USER <name>")
+    print("  CREATE_TEAM <name>")
+    print("  CREATE_GAME <home_id> <away_id>")
+    print("  CREATE_CUP <type> <id1> <id2> ...")
+    print("  WATCH <id>")
+    print("  START <id>")
+    print("  SCORE <id> <points> <HOME/AWAY>")
+    print("  END <id>")
+    print("  GET_STANDINGS <cup_id>")
+    print("  GET_CUP_GAMES <cup_id>")
+    print("  GENERATE_PLAYOFFS <cup_id>")
+    print("  SAVE")
+    print("  exit")
 
     try:
         # Main thread loop for handling user input.

@@ -342,6 +342,17 @@ class Session(threading.Thread):
                 save_state()
                 return {"status": "OK", "message": "State saved"}
 
+            elif cmd == "END":
+                gid = req.get("id")
+                if gid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+
+                with repo_lock:
+                    game = repository._objects.get(int(gid), {}).get('instance')
+                    if isinstance(game, Game):
+                        game.end()  # Transitions state to ENDED
+                        return {"status": "OK", "message": "Game ended"}
+                    return {"status": "ERROR", "message": "Not a game or game not found"}
+
             else:
                 return {"status": "ERROR", "message": f"Unknown command: {cmd}"}
 
