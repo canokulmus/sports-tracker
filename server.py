@@ -246,7 +246,12 @@ class Session(threading.Thread):
                     try:
                         # Manually create Cup to avoid 'type' parameter conflict in Repo.create
                         from datetime import timedelta
-                        cup = Cup(teams=teams, type=c_type, interval=timedelta(days=1))
+                        cup = Cup(
+                            teams=teams,
+                            type=c_type,
+                            interval=timedelta(days=1),
+                            repo=repository  # <--- CRITICAL FIX
+                        )
 
                         # Manually register in repository
                         # FIXED: Increment the integer ID counter (was itertools.count)
@@ -312,6 +317,14 @@ class Session(threading.Thread):
                         return {"status": "ERROR", "message": "Cup not found"}
 
                     cup = obj['instance']
+
+                    # --- INSERT YOUR CODE HERE ---
+                    # Ensure the cup has a reference to the repo before generating playoffs
+                    # This handles cases where the server restarted and the repo reference was lost
+                    if not hasattr(cup, 'repo') or cup.repo is None:
+                        cup.repo = repository
+                    # -----------------------------
+
                     try:
                         # Capture the number of games before generation
                         count_before = len(cup.games)

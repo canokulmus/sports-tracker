@@ -19,8 +19,10 @@ class Cup:
         interval: timedelta,
         num_groups: int = 4,
         playoff_teams: int = 8,
+        repo: Optional[Any] = None,  # <--- Add this argument
     ) -> None:
         """Initializes a tournament, generating all its games based on the format."""
+        self.repo = repo  # <--- Store the repo reference
         self.teams = teams
         self.type = type
         self.interval = interval
@@ -94,14 +96,8 @@ class Cup:
         current_date = self._current_date
 
         for home_team, away_team in pairs:
-            game = Game(
-                home=home_team,
-                away=away_team,
-                id_=self._game_id_counter,
-                datetime=current_date,
-            )
+            game = self._create_game_instance(home=home_team, away=away_team, datetime=current_date)
             self.games.append(game)
-            self._game_id_counter += 1
             current_date += self.interval
 
             if double:
@@ -114,6 +110,31 @@ class Cup:
                 self.games.append(game2)
                 self._game_id_counter += 1
                 current_date += self.interval
+
+    def _create_game_instance(self, home, away, datetime, group=None) -> Game:
+        """Helper to create a game via Repo if available, or standalone otherwise."""
+        if self.repo:
+            # SERVER MODE: Register with Repo to get a Global ID
+            game_id = self.repo.create(
+                type="game",
+                home=home,
+                away=away,
+                datetime=datetime,
+                group=group
+            )
+            # Fetch the actual game object back from the repo
+            return self.repo._objects[game_id]['instance']
+        else:
+            # STANDALONE MODE: Use internal counter (for unit tests)
+            game = Game(
+                home=home,
+                away=away,
+                id_=self._game_id_counter,
+                datetime=datetime,
+                group=group
+            )
+            self._game_id_counter += 1
+            return game
 
     def search(
         self,
@@ -351,14 +372,8 @@ class Cup:
             away_team = teams[i + 1]
 
             # First leg
-            game = Game(
-                home=home_team,
-                away=away_team,
-                id_=self._game_id_counter,
-                datetime=current_date,
-            )
+            game = self._create_game_instance(home=home_team, away=away_team, datetime=current_date)
             round_games.append(game)
-            self._game_id_counter += 1
             current_date += self.interval
 
             if double:
@@ -544,16 +559,8 @@ class Cup:
         pairs = list(combinations(group_teams, 2))
 
         for home_team, away_team in pairs:
-            game = Game(
-                home=home_team,
-                away=away_team,
-                id_=self._game_id_counter,
-                datetime=current_date,
-                # Assign the group name to the game for filtering.
-                group=group_name,
-            )
+            game = self._create_game_instance(home=home_team, away=away_team, datetime=current_date, group=group_name)
             group_games.append(game)
-            self._game_id_counter += 1
             current_date += self.interval
 
             # If double, create the reverse fixture.

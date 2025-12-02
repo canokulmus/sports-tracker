@@ -214,28 +214,97 @@ def run_concurrency_scenario():
     print("-" * 60 + "\n")
 
 
-# --- SCENARIO 2: LEAGUE TOURNAMENT ---
+# --- SCENARIO 2: LEAGUE TOURNAMENT (FULL SEASON) ---
 def run_league_scenario():
-    print("\n" + "=" * 50)
-    print("SCENARIO 2: LEAGUE CUP")
-    print("Testing: Create League, Play Game, Check Standings")
-    print("=" * 50 + "\n")
+    print("\n" + "=" * 60)
+    print("SCENARIO 2: LEAGUE CUP - FULL SEASON SIMULATION")
+    print("Testing: Create League -> Fetch Schedule -> Play All Games -> Verify Standings")
+    print("=" * 60 + "\n")
 
-    actions = [
+    # 1. Setup: Create Teams and the League Cup
+    print("[1/3] Initializing League...")
+    setup_actions = [
         {"payload": {"command": "USER", "username": "LeagueAdmin"}},
-        {"payload": {"command": "CREATE_TEAM", "name": "L-Team 1"}, "save_id": "l_t1"},
-        {"payload": {"command": "CREATE_TEAM", "name": "L-Team 2"}, "save_id": "l_t2"},
-        {"payload": {"command": "CREATE_TEAM", "name": "L-Team 3"}, "save_id": "l_t3"},
-        {"payload": {"command": "CREATE_CUP", "cup_type": "LEAGUE", "team_ids": ["$l_t1", "$l_t2", "$l_t3"]},
-         "save_id": "league_id"},
+        {"payload": {"command": "CREATE_TEAM", "name": "Arsenal"}, "save_id": "t_ars"},
+        {"payload": {"command": "CREATE_TEAM", "name": "Liverpool"}, "save_id": "t_liv"},
+        {"payload": {"command": "CREATE_TEAM", "name": "Man City"}, "save_id": "t_mci"},
+        {"payload": {"command": "CREATE_TEAM", "name": "Chelsea"}, "save_id": "t_che"},
 
-        {"payload": {"command": "WATCH", "id": "$league_id"}},
-        {"payload": {"command": "GET_STANDINGS", "id": "$league_id"}}
+        # Create a LEAGUE cup with these 4 teams
+        {"payload": {
+            "command": "CREATE_CUP",
+            "cup_type": "LEAGUE",
+            "team_ids": ["$t_ars", "$t_liv", "$t_mci", "$t_che"]
+        }, "save_id": "pl_cup"},
     ]
 
-    t = TestClient("LeagueAdmin", actions)
-    t.start();
-    t.join()
+    t_setup = TestClient("LeagueAdmin", setup_actions)
+    t_setup.start()
+    t_setup.join()
+
+    # 2. Logic: Fetch the generated game IDs so we can play them
+    # We use a raw socket here because we need to extract data dynamically to build the next step
+    print("\n[2/3] Fetching Match Schedule from Server...")
+    try:
+        cup_id = SHARED_CONTEXT["pl_cup"]
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((HOST, PORT))
+
+        # Send GET_CUP_GAMES command
+        req = {"command": "GET_CUP_GAMES", "id": cup_id}
+        s.sendall(json.dumps(req).encode('utf-8') + b"\n")
+
+        # Read Welcome Message (ignore)
+        s.makefile().readline()
+        # Read Response
+        response_line = s.makefile().readline()
+        response = json.loads(response_line)
+
+        game_ids = response.get("game_ids", [])
+        print(f"      League generated {len(game_ids)} games: {game_ids}")
+        s.close()
+    except Exception as e:
+        print(f"      ❌ Failed to fetch games: {e}")
+        return
+
+    # 3. Action: Play every game in the season
+    print(f"\n[3/3] Simulating the Season ({len(game_ids)} matches)...")
+
+    season_actions = [{"payload": {"command": "USER", "username": "Referee"}}]
+
+    # Observe the cup to see updates for ALL games
+    season_actions.append({"payload": {"command": "WATCH", "id": "$pl_cup"}})
+
+    import random
+    for gid in game_ids:
+        # Generate random realistic scores
+        home_score = random.randint(0, 4)
+        away_score = random.randint(0, 4)
+
+        season_actions.append({"payload": {"command": "START", "id": gid}})
+
+        # Add scores (simulating the match)
+        if home_score > 0:
+            season_actions.append({"payload": {"command": "SCORE", "id": gid, "points": home_score, "side": "HOME"}})
+        if away_score > 0:
+            season_actions.append({"payload": {"command": "SCORE", "id": gid, "points": away_score, "side": "AWAY"}})
+
+        season_actions.append({"payload": {"command": "END", "id": gid}})
+        # Small wait between games to make logs readable
+        season_actions.append({"wait": 0.2})
+
+    # Finally, get the table
+    season_actions.append({"payload": {"command": "GET_STANDINGS", "id": "$pl_cup"}})
+
+    t_season = TestClient("SeasonSim", season_actions)
+    t_season.start()
+    t_season.join()
+
+    print("\n" + "-" * 60)
+    print("SCENARIO COMPLETE. Verify that:")
+    print("1. All games were played (Started -> Scored -> Ended).")
+    print("2. The final 'standings' printed above show non-zero points.")
+    print("-" * 60 + "\n")
 
 
 # --- SCENARIO 3: ELIMINATION TOURNAMENT ---
