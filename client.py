@@ -122,6 +122,18 @@ def parse_input_to_json(text):
             return None
         payload["id"] = args[0]
 
+    elif cmd == "PAUSE":
+        if len(args) < 1:
+            print("Usage: PAUSE <id>")
+            return None
+        payload["id"] = args[0]
+
+    elif cmd == "RESUME":
+        if len(args) < 1:
+            print("Usage: RESUME <id>")
+            return None
+        payload["id"] = args[0]
+
     elif cmd == "END":
         if len(args) < 1:
             print("Usage: END <id>")

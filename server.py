@@ -89,6 +89,31 @@ class Session(threading.Thread):
         self.attached_ids: List[int] = [] # IDs of objects this session has interacted with.
         self.running = True
 
+    def find_game(self, game_id: int):
+        """Find a game by ID in repository or cups.
+        
+        First checks the repository directly for standalone games.
+        Then searches through all cups to find games that are part of tournaments.
+        """
+        # Check if game exists directly in repository
+        obj = repository._objects.get(game_id, {}).get('instance')
+        if isinstance(obj, Game):
+            return obj
+        
+        # Search through all cups
+        for obj_data in repository._objects.values():
+            instance = obj_data['instance']
+            if isinstance(instance, Cup):
+                try:
+                    # Use Cup's __getitem__ to find game by ID
+                    return instance[game_id]
+                except KeyError:
+                    # Game not in this cup, continue searching
+                    continue
+        
+        # Game not found anywhere
+        return None
+
     def notification_agent(self) -> None:
         """
         The "notification agent" required by the project description.
@@ -212,7 +237,28 @@ class Session(threading.Thread):
                         game.start() # This will trigger a notification to all watchers.
                         return {"status": "OK", "message": "Game started"}
                     return {"status": "ERROR", "message": "Not a game or game not found"}
+                
+            elif cmd == "PAUSE":
+                gid = req.get("id")
+                if gid is None: return {"status": "ERROR", "message": "Missing 'id'"}
 
+                with repo_lock:
+                    game = self.find_game(int(gid))
+                    if game:
+                        game.pause()
+                        return {"status": "OK", "message": "Game paused"}
+                    return {"status": "ERROR", "message": "Game not found"}
+
+            elif cmd == "RESUME":
+                gid = req.get("id")
+                if gid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+
+                with repo_lock:
+                    game = self.find_game(int(gid))
+                    if game:
+                        game.resume()
+                        return {"status": "OK", "message": "Game resumed"}
+                    return {"status": "ERROR", "message": "Game not found"}
             elif cmd == "SCORE":
                 gid = req.get("id")
                 pts = req.get("points")
