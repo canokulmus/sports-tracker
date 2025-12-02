@@ -238,9 +238,108 @@ def run_elimination_scenario():
     t.join()
 
 
+# --- SCENARIO 4: GROUP STAGE TRANSITION ---
+def run_group_transition_scenario():
+    print("\n" + "=" * 50)
+    print("SCENARIO 4: GROUP TO PLAYOFF TRANSITION")
+    print("Testing: Playing all group games and triggering playoffs.")
+    print("=" * 50 + "\n")
+
+    # 1. Setup: Create 8 teams (Enough for 4 groups of 2)
+    setup_actions = [{"payload": {"command": "USER", "username": "GroupAdmin"}}]
+
+    team_ids = []
+    # Create 8 teams so we get 2 teams per group (4 groups default) -> 1 game per group
+    for i in range(1, 9):
+        t_id = f"g_t{i}"
+        setup_actions.append({
+            "payload": {"command": "CREATE_TEAM", "name": f"G-Team {i}"},
+            "save_id": t_id
+        })
+        team_ids.append(f"${t_id}")
+
+    setup_actions.append({
+        "payload": {"command": "CREATE_CUP", "cup_type": "GROUP", "team_ids": team_ids},
+        "save_id": "group_cup"
+    })
+
+    # Run setup
+    client = TestClient("Setup", setup_actions)
+    client.start()
+    client.join()
+
+    # 2. Dynamic Play: Fetch games and play them all
+    print("[Logic] Fetching group games to simulate matches...")
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((HOST, PORT))
+    s.sendall(json.dumps({"command": "GET_CUP_GAMES", "id": SHARED_CONTEXT["group_cup"]}).encode() + b"\n")
+    s.makefile().readline()  # Skip info
+    resp = json.loads(s.makefile().readline())
+    game_ids = resp.get("game_ids", [])
+    s.close()
+
+    print(f"[Logic] Found {len(game_ids)} group games. Playing them now...")
+
+    play_actions = [{"payload": {"command": "USER", "username": "Referee"}}]
+    for gid in game_ids:
+        play_actions.append({"payload": {"command": "START", "id": gid}})
+        play_actions.append({"payload": {"command": "SCORE", "id": gid, "points": 3, "side": "HOME"}})
+        # We rely on the internal logic that the game is 'played' enough for standings
+
+    # 3. Trigger Playoffs
+    play_actions.append({"wait": 1})
+    play_actions.append({"payload": {"command": "GENERATE_PLAYOFFS", "id": "$group_cup"}})
+
+    player = TestClient("Referee", play_actions)
+    player.start()
+    player.join()
+
+
+# --- SCENARIO 5: PERSISTENCE CHECK ---
+def run_persistence_scenario():
+    print("\n" + "=" * 50)
+    print("SCENARIO 5: PERSISTENCE & RECOVERY")
+    print("Testing: Save state, (Simulated) Restart, Verify Data.")
+    print("=" * 50 + "\n")
+
+    # Step 1: Create Data (Teams AND a Game) and Save
+    seed_actions = [
+        {"payload": {"command": "USER", "username": "Saver"}},
+        {"payload": {"command": "CREATE_TEAM", "name": "Persistent FC"}, "save_id": "p_t1"},
+        {"payload": {"command": "CREATE_TEAM", "name": "Immutable Utd"}, "save_id": "p_t2"},
+        # Create a Game, because Games are watchable
+        {"payload": {"command": "CREATE_GAME", "home_id": "$p_t1", "away_id": "$p_t2"}, "save_id": "p_game"},
+        {"payload": {"command": "SAVE"}}
+    ]
+
+    c1 = TestClient("Saver", seed_actions)
+    c1.start()
+    c1.join()
+
+    print("\n   ⚠️  ACTION REQUIRED: Restart the Server NOW to test persistence.")
+    print("   ⚠️  (Stop 'server.py', then run it again)")
+
+    # --- FIX: Use input to wait indefinitely ---
+    input("   ⚠️  Press ENTER here once the server is back online >> ")
+
+    # Step 2: Connect and Verify
+    verify_actions = [
+        {"payload": {"command": "USER", "username": "Verifier"}},
+        {"payload": {"command": "WATCH", "id": "$p_game"}}
+    ]
+
+    c2 = TestClient("Verifier", verify_actions)
+    c2.start()
+    c2.join()
+
 if __name__ == "__main__":
     run_concurrency_scenario()
     time.sleep(1)
     run_league_scenario()
     time.sleep(1)
     run_elimination_scenario()
+    time.sleep(1)
+    run_group_transition_scenario()
+    time.sleep(1)
+    run_persistence_scenario()

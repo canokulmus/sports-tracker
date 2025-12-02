@@ -287,6 +287,44 @@ class Session(threading.Thread):
 
                 return {"status": "OK", "standings": standings}
 
+            elif cmd == "GET_CUP_GAMES":
+                cid = req.get("id")
+                if cid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+
+                with repo_lock:
+                    obj = repository._objects.get(int(cid))
+                    if not obj or not isinstance(obj['instance'], Cup):
+                        return {"status": "ERROR", "message": "Cup not found"}
+
+                    cup = obj['instance']
+                    # Return list of game IDs associated with this cup
+                    game_ids = [g.id() for g in cup.games]
+
+                return {"status": "OK", "game_ids": game_ids}
+
+            elif cmd == "GENERATE_PLAYOFFS":
+                cid = req.get("id")
+                if cid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+
+                with repo_lock:
+                    obj = repository._objects.get(int(cid))
+                    if not obj or not isinstance(obj['instance'], Cup):
+                        return {"status": "ERROR", "message": "Cup not found"}
+
+                    cup = obj['instance']
+                    try:
+                        # Capture the number of games before generation
+                        count_before = len(cup.games)
+                        cup.generate_playoffs()
+                        new_games = len(cup.games) - count_before
+
+                        # We must save the new state immediately
+                        save_state()
+
+                        return {"status": "OK", "message": f"Playoffs generated. {new_games} new games created."}
+                    except ValueError as e:
+                        return {"status": "ERROR", "message": str(e)}
+
             elif cmd == "SAVE":
                 save_state()
                 return {"status": "OK", "message": "State saved"}
