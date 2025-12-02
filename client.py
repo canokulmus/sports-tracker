@@ -199,6 +199,8 @@ def main():
     print("  WATCH <id>")
     print("  START <id>")
     print("  SCORE <id> <points> <HOME/AWAY>")
+    print("  PAUSE <id>")
+    print("  RESUME <id>")
     print("  END <id>")
     print("  GET_STANDINGS <cup_id>")
     print("  GET_CUP_GAMES <cup_id>")
