@@ -232,12 +232,15 @@ class Session(threading.Thread):
                 if gid is None: return {"status": "ERROR", "message": "Missing 'id'"}
 
                 with repo_lock:
-                    game = repository._objects.get(int(gid), {}).get('instance')
-                    if isinstance(game, Game):
-                        game.start() # This will trigger a notification to all watchers.
-                        return {"status": "OK", "message": "Game started"}
-                    return {"status": "ERROR", "message": "Not a game or game not found"}
-                
+                    game = self.find_game(int(gid))
+                    if game:
+                        game.start()
+                        return {
+                            "status": "OK", 
+                            "message": f"Game started: {game.home().team_name} vs {game.away().team_name}"
+                        }
+                    return {"status": "ERROR", "message": "Game not found"}
+
             elif cmd == "PAUSE":
                 gid = req.get("id")
                 if gid is None: return {"status": "ERROR", "message": "Missing 'id'"}
@@ -246,7 +249,10 @@ class Session(threading.Thread):
                     game = self.find_game(int(gid))
                     if game:
                         game.pause()
-                        return {"status": "OK", "message": "Game paused"}
+                        return {
+                            "status": "OK", 
+                            "message": f"Game paused: {game.home().team_name} vs {game.away().team_name}"
+                        }
                     return {"status": "ERROR", "message": "Game not found"}
 
             elif cmd == "RESUME":
@@ -257,7 +263,10 @@ class Session(threading.Thread):
                     game = self.find_game(int(gid))
                     if game:
                         game.resume()
-                        return {"status": "OK", "message": "Game resumed"}
+                        return {
+                            "status": "OK", 
+                            "message": f"Game resumed: {game.home().team_name} vs {game.away().team_name}"
+                        }
                     return {"status": "ERROR", "message": "Game not found"}
             elif cmd == "SCORE":
                 gid = req.get("id")
@@ -267,12 +276,15 @@ class Session(threading.Thread):
                     return {"status": "ERROR", "message": "Invalid params"}
 
                 with repo_lock:
-                    game = repository._objects.get(int(gid), {}).get('instance')
-                    if isinstance(game, Game):
+                    game = self.find_game(int(gid))
+                    if game:
                         team_obj = game.home() if side == "HOME" else game.away()
-                        game.score(int(pts), team_obj) # Triggers notification.
-                        return {"status": "OK", "message": "Score updated"}
-                    return {"status": "ERROR", "message": "Not a game or game not found"}
+                        game.score(int(pts), team_obj)
+                        return {
+                            "status": "OK", 
+                            "message": f"Score updated: {game.home().team_name} {game.home_score} - {game.away_score} {game.away().team_name}"
+                        }
+                    return {"status": "ERROR", "message": "Game not found"}
 
             elif cmd == "CREATE_CUP":
                 c_type = req.get("cup_type")
@@ -391,11 +403,15 @@ class Session(threading.Thread):
                 if gid is None: return {"status": "ERROR", "message": "Missing 'id'"}
 
                 with repo_lock:
-                    game = repository._objects.get(int(gid), {}).get('instance')
-                    if isinstance(game, Game):
-                        game.end()  # Transitions state to ENDED
-                        return {"status": "OK", "message": "Game ended"}
-                    return {"status": "ERROR", "message": "Not a game or game not found"}
+                    game = self.find_game(int(gid))
+                    if game:
+                        game.end()
+                        # Final skoru göster
+                        return {
+                            "status": "OK", 
+                            "message": f"Game ended: {game.home().team_name} {game.home_score} - {game.away_score} {game.away().team_name}"
+                        }
+                    return {"status": "ERROR", "message": "Game not found"}
 
             else:
                 return {"status": "ERROR", "message": f"Unknown command: {cmd}"}
