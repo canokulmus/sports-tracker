@@ -49,6 +49,18 @@ class Cup:
 
         raise KeyError(f"Game with ID {gameid} not found in this cup")
 
+    # Add this method
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state['_observers'] = []
+        return state
+
+    # Add this method
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        if '_observers' not in self.__dict__:
+            self._observers = []
+
     def __str__(self) -> str:
         """Returns a human-readable summary of the cup."""
         return f"Cup Tournament: {self.type} with {len(self.teams)} teams, {len(self.games)} games"

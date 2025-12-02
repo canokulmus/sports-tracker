@@ -53,6 +53,19 @@ class Game:
         """Returns the string representation of the Game."""
         return f"Game: {self.home().team_name} vs {self.away().team_name}"
 
+    # Add this method to exclude observers from pickling
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Do not save observers (they are runtime connections)
+        state['_observers'] = []
+        return state
+
+    # Add this to ensure proper restoration
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        if '_observers' not in self.__dict__:
+            self._observers = []
+
     def _notify_observers(self) -> None:
         """Notifies all registered observers of a state change."""
         for obj in self._observers:

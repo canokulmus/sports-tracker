@@ -249,7 +249,10 @@ class Session(threading.Thread):
                         cup = Cup(teams=teams, type=c_type, interval=timedelta(days=1))
 
                         # Manually register in repository
-                        cid = next(repository._id_counter)
+                        # FIXED: Increment the integer ID counter (was itertools.count)
+                        repository._last_id += 1
+                        cid = repository._last_id
+
                         repository._objects[cid] = {
                             "instance": cup,
                             "attachment_count": 0,
@@ -323,6 +326,16 @@ def load_state():
         try:
             with open(SAVE_FILE, 'rb') as f:
                 repository = pickle.load(f)
+
+            # --- FIX START ---
+            # Ensure _last_id is consistent with the highest existing ID
+            if repository._objects:
+                max_id = max(repository._objects.keys())
+                if repository._last_id < max_id:
+                    print(f"Migrating _last_id from {repository._last_id} to {max_id}")
+                    repository._last_id = max_id
+            # --- FIX END ---
+
             print("Server state loaded from 'server_state.pkl'.")
         except Exception as e:
             print(f"Could not load state: {e}. Starting with a new repository.")

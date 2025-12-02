@@ -1,4 +1,3 @@
-import itertools
 from typing import Any, Dict, List, Optional, Tuple
 
 from cup import Cup
@@ -17,9 +16,8 @@ class Repo:
     def __init__(self) -> None:
         """Initializes the repository with an empty object store."""
         self._objects: Dict[int, Dict[str, Any]] = {}
-        # Using itertools.count is a memory-efficient way to generate endless
-        # sequential IDs without needing to manually track the last ID.
-        self._id_counter = itertools.count(start=1)
+        # FIXED: Replaced itertools.count with a simple integer for pickle compatibility.
+        self._last_id = 0
 
     def create(self, **kwargs: Any) -> int:
         """Creates and registers an object based on its 'type'.
@@ -31,7 +29,9 @@ class Repo:
         if obj_type is None:
             raise ValueError("You must specify an object 'type' to create.")
 
-        new_id = next(self._id_counter)
+        # FIXED: Manually increment the ID counter
+        self._last_id += 1
+        new_id = self._last_id
 
         if obj_type == "team":
             new_obj = Team(**kwargs)

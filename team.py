@@ -30,6 +30,10 @@ class Team:
             AttributeError: If the attribute doesn't exist as a standard or
                             custom attribute.
         """
+        # Prevent infinite recursion if _generic_attrs is missing during unpickling
+        if key == "_generic_attrs":
+            raise AttributeError()
+
         try:
             return self._generic_attrs[key]
         except KeyError:
