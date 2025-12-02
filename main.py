@@ -10,6 +10,7 @@ from team import Team
 from game import Game
 from cup import Cup, CupType
 from repo import Repo
+from constants import GameState
 
 
 def print_header(text: str) -> None:
@@ -184,7 +185,7 @@ def demo_observer() -> None:
     print("\nCreating observer to watch games...")
 
     class GameObserver:
-        """Simple game observer."""
+        """Simple game observer with detailed notifications."""
 
         def __init__(self, name: str):
             self.name = name
@@ -193,11 +194,59 @@ def demo_observer() -> None:
         def update(self, game: Game) -> None:
             """Called when game state changes."""
             self.notifications += 1
-            print(
-                f"   [Observer: {self.name}] Game {game.id()} update: "
-                f"{game.home().team_name} vs {game.away().team_name} "
-                f"(State: {game.state.name})"
-            )
+            
+            # Format the notification based on game state
+            home = game.home().team_name
+            away = game.away().team_name
+            state = game.state.name
+            score = f"{game.home_score} - {game.away_score}"
+            
+            # Different messages for different states
+            if game.state == GameState.READY:
+                print(f"   📺 [{self.name}] Game {game.id()}: {home} vs {away} is READY")
+            
+            elif game.state == GameState.RUNNING:
+                print(f"   📺 [{self.name}] Game {game.id()}: {home} {score} {away} - LIVE 🔴")
+            
+            elif game.state == GameState.PAUSED:
+                print(f"   📺 [{self.name}] Game {game.id()}: {home} {score} {away} - PAUSED ⏸️")
+            
+            elif game.state == GameState.ENDED:
+                print(f"   📺 [{self.name}] Game {game.id()}: {home} {score} {away} - FULL TIME ⏹️")
+            
+            else:
+                print(f"   📺 [{self.name}] Game {game.id()}: {home} vs {away} ({state})")
+        """Simple game observer with detailed notifications."""
+
+        def __init__(self, name: str):
+            self.name = name
+            self.notifications = 0
+
+        def update(self, game: Game) -> None:
+            """Called when game state changes."""
+            self.notifications += 1
+            
+            # Format the notification based on game state
+            home = game.home().team_name
+            away = game.away().team_name
+            state = game.state.name
+            score = f"{game.home_score} - {game.away_score}"
+            
+            # Different messages for different states
+            if game.state == GameState.READY:
+                print(f"   📺 [{self.name}] Game {game.id()}: {home} vs {away} is READY")
+            
+            elif game.state == GameState.RUNNING:
+                print(f"   📺 [{self.name}] Game {game.id()}: {home} {score} {away} - LIVE 🔴")
+            
+            elif game.state == GameState.PAUSED:
+                print(f"   📺 [{self.name}] Game {game.id()}: {home} {score} {away} - PAUSED ⏸️")
+            
+            elif game.state == GameState.ENDED:
+                print(f"   📺 [{self.name}] Game {game.id()}: {home} {score} {away} - FULL TIME ⏹️")
+            
+            else:
+                print(f"   📺 [{self.name}] Game {game.id()}: {home} vs {away} ({state})")
 
     # Create teams and game
     home = Team("Real Madrid")
