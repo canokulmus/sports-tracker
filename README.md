@@ -485,4 +485,71 @@ PlaceholderTeam("Winner of Games [1, 2]", [1, 2])
 
 ---
 
+## Phase 2: TCP Server
+
+### Features
+
+- Multi-threaded TCP server with session management
+- JSON-based NDJSON protocol
+- Real-time notifications via Observer pattern
+- Thread-safe operations with RLock
+- Persistence with pickle (save/load)
+- Round-robin scheduling for league tournaments
+
+### Running the Server
+
+```bash
+# Start server (Terminal 1):
+python server.py
+
+# Start client (Terminal 2):
+python client.py
+
+# Available commands:
+USER <name>
+CREATE_TEAM <name>
+CREATE_GAME <home_id> <away_id>
+CREATE_CUP <type> <team_id1> <team_id2> ...
+WATCH <id>
+START <id>
+PAUSE <id>
+RESUME <id>
+SCORE <id> <points> <HOME/AWAY>
+END <id>
+GET_STANDINGS <cup_id>
+GET_CUP_GAMES <cup_id>
+GENERATE_PLAYOFFS <cup_id>
+SAVE
+```
+
+### Testing Phase 2
+
+```bash
+# Automated scenarios (includes concurrency, persistence tests):
+python scenarios.py
+
+# Manual testing:
+# 1. Start server
+# 2. Open multiple clients (test concurrency)
+# 3. Create games, watch, score
+# 4. Test SAVE and server restart
+```
+
+### Architecture
+
+- **server.py**: Multi-threaded TCP server with Session class
+- **client.py**: Interactive JSON client with notification receiver
+- **scenarios.py**: Automated test scenarios for concurrency and features
+- **Concurrency**: RLock protects shared repository
+- **Notifications**: Queue-based async notification system
+- **Persistence**: Pickle serialization (observers excluded)
+
+### Test Results
+
+- ✅ 66/66 Unit tests passing
+- ✅ Concurrency test: No race conditions
+- ✅ Persistence test: Data preserved across restarts
+- ✅ Observer pattern: Real-time notifications working
+- ✅ Round-robin scheduling: Balanced match distribution
+
 **Status:** ✅ Complete - All tests passing (66/66)
