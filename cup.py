@@ -85,25 +85,60 @@ class Cup:
             raise ValueError(f"Unknown cup type: {self.type}")
 
     def _generate_league(self, double: bool = False) -> None:
-        """Generates round-robin league matches.
-
-        Uses `itertools.combinations` to efficiently create unique pairings
-        for every team to play every other team. If `double` is true, a
-        second set of games is created with home and away teams swapped.
+        """Generates round-robin league matches with proper scheduling.
+        
+        Uses the Round-Robin algorithm to ensure each team plays one game per round,
+        avoiding back-to-back matches for any team.
         """
-        pairs = list(combinations(self.teams, 2))
-
+        import copy
+        
+        teams = copy.copy(self.teams)
+        n = len(teams)
+        
+        # If odd number of teams, add a "bye" (dummy team)
+        if n % 2 == 1:
+            teams.append(None)  # None = bye
+            n += 1
+        
         current_date = self._current_date
-
-        for home_team, away_team in pairs:
-            game = self._create_game_instance(home=home_team, away=away_team, datetime=current_date)
-            self.games.append(game)
+        
+        # Round-Robin algorithm: n-1 rounds for n teams
+        for round_num in range(n - 1):
+            # Create matches for this round
+            for i in range(n // 2):
+                home_idx = i
+                away_idx = n - 1 - i
+                
+                home_team = teams[home_idx]
+                away_team = teams[away_idx]
+                
+                # Skip if either team is None (bye)
+                if home_team is None or away_team is None:
+                    continue
+                
+                # Create game
+                game = self._create_game_instance(
+                    home=home_team, 
+                    away=away_team, 
+                    datetime=current_date
+                )
+                self.games.append(game)
+            
+            # Move to next round date
             current_date += self.interval
-
-            if double:
+            
+            # Rotate teams (keep first team fixed, rotate others)
+            teams = [teams[0]] + [teams[-1]] + teams[1:-1]
+        
+        # If double league, create reverse fixtures
+        if double:
+            first_round_count = len(self.games)
+            for i in range(first_round_count):
+                original_game = self.games[i]
+                # Create reverse fixture (swap home/away)
                 game2 = Game(
-                    home=away_team,
-                    away=home_team,
+                    home=original_game.away(),
+                    away=original_game.home(),
                     id_=self._game_id_counter,
                     datetime=current_date,
                 )

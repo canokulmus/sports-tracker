@@ -37,7 +37,6 @@ def receive_loop(sock, stop_event):
             try:
                 data = json.loads(line)
 
-                # --- PRETTY PRINTING LOGIC ---
                 # Clear the current line to prevent mixing user input with server messages.
                 sys.stdout.write("\r" + " " * 50 + "\r")
 
@@ -52,9 +51,24 @@ def receive_loop(sock, stop_event):
                     print(f"✅ {data.get('message', 'Success')}")
                     if "id" in data:
                         print(f"   -> Object ID: {data['id']}")
-                else:
-                    # Print any other JSON messages from the server.
-                    print(f"📥 {json.dumps(data, indent=2)}")
+                    if "game_ids" in data:
+                        print(f"   -> Game IDs: {data['game_ids']}")
+                        
+                if "standings" in data:
+                    standings = data['standings']
+                    print(f"   -> Standings:")
+                    
+                    # if list (LEAGUE)
+                    if isinstance(standings, list):
+                        print(f"\n      {'Pos':<5} {'Team':<20} {'W':<4} {'D':<4} {'L':<4} {'GF':<5} {'GA':<5} {'Pts':<5}")
+                        print(f"      {'-'*60}")
+                        for i, row in enumerate(standings, 1):
+                            team, won, draw, lost, gf, ga, pts = row
+                            print(f"      {i:<5} {team:<20} {won:<4} {draw:<4} {lost:<4} {gf:<5} {ga:<5} {pts:<5}")
+                    
+                    # if dict (ELIMINATION/GROUP)
+                    elif isinstance(standings, dict):
+                        print(json.dumps(standings, indent=4))
 
                 # Restore the user input prompt.
                 sys.stdout.write("> ")

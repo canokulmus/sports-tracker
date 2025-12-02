@@ -296,11 +296,10 @@ class Session(threading.Thread):
                             teams=teams,
                             type=c_type,
                             interval=timedelta(days=1),
-                            repo=repository  # <--- CRITICAL FIX
+                            repo=repository
                         )
 
                         # Manually register in repository
-                        # FIXED: Increment the integer ID counter (was itertools.count)
                         repository._last_id += 1
                         cid = repository._last_id
 
@@ -363,8 +362,7 @@ class Session(threading.Thread):
                         return {"status": "ERROR", "message": "Cup not found"}
 
                     cup = obj['instance']
-
-                    # --- INSERT YOUR CODE HERE ---
+                    
                     # Ensure the cup has a reference to the repo before generating playoffs
                     # This handles cases where the server restarted and the repo reference was lost
                     if not hasattr(cup, 'repo') or cup.repo is None:
@@ -435,14 +433,12 @@ def load_state():
             with open(SAVE_FILE, 'rb') as f:
                 repository = pickle.load(f)
 
-            # --- FIX START ---
             # Ensure _last_id is consistent with the highest existing ID
             if repository._objects:
                 max_id = max(repository._objects.keys())
                 if repository._last_id < max_id:
                     print(f"Migrating _last_id from {repository._last_id} to {max_id}")
                     repository._last_id = max_id
-            # --- FIX END ---
 
             print("Server state loaded from 'server_state.pkl'.")
         except Exception as e:
