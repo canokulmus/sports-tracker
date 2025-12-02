@@ -39,21 +39,18 @@ class TestClient(threading.Thread):
 
                 # Prepare the payload
                 raw_payload = action['payload']
-
-                # Dynamic ID Resolution: Replace placeholders (e.g., "$team_a") with actual IDs from context
                 payload = self.resolve_placeholders(raw_payload)
 
                 print(f"[{self.name}] >> {payload['command']}")
                 msg = json.dumps(payload) + "\n"
                 self.sock.sendall(msg.encode('utf-8'))
 
-                # --- CRITICAL FIX: ALWAYS WAIT FOR RESPONSE ---
-                # The server sends a response for every command (USER, CREATE, etc.).
-                # We must consume it to keep the queue synchronized, even if we don't save an ID.
+                # Wait for response (Synchronous commands only)
                 try:
+                    # Critical: Always wait for a response to keep sync
                     response = self.response_queue.get(timeout=5)
 
-                    # If this action expects to save a resulting ID
+                    # Save IDs if requested by the scenario action
                     if "save_id" in action:
                         if response.get("status") == "OK" and "id" in response:
                             saved_key = action["save_id"]
@@ -61,12 +58,14 @@ class TestClient(threading.Thread):
                             SHARED_CONTEXT[saved_key] = new_id
                             print(f"   💾 [{self.name}] Saved ID {new_id} as '${saved_key}'")
                         else:
-                            print(f"   ⚠️ [{self.name}] Failed to save ID from response: {response}")
+                            print(f"   ⚠️ [{self.name}] Failed to save ID: {response}")
 
                 except queue.Empty:
                     print(f"   ❌ [{self.name}] Timeout waiting for response.")
 
-                time.sleep(0.2)  # Small delay to ensure order
+                # Small delay to prevent packet fusion in simple tests (skipped in stress tests)
+                if self.name != "Spammer":
+                    time.sleep(0.1)
 
             # Stay alive briefly to catch final notifications
             time.sleep(2)
@@ -81,6 +80,7 @@ class TestClient(threading.Thread):
             print(f"[{self.name}] Error: {e}")
 
     def listen(self):
+        """Listens for messages and prints them VERBOSELY."""
         sock_file = self.sock.makefile('r', encoding='utf-8')
         while self.running:
             try:
@@ -88,22 +88,22 @@ class TestClient(threading.Thread):
                 if not line: break
                 data = json.loads(line)
 
-                # Differentiate between Async Notifications and Command Responses
+                # --- VERBOSE PRINTING LOGIC ---
                 if data.get("type") == "NOTIFICATION":
-                    print(f"   🔔 [{self.name}] NOTIFIED: Game {data.get('game_id')} state={data.get('state')}")
+                    s = data.get("score", {})
+                    # CHANGED: Explicitly print the score so we can verify the test result
+                    print(f"   🔔 [{self.name}] NOTIFIED: Game {data.get('game_id')} | "
+                          f"State: {data.get('state')} | "
+                          f"Score: {s.get('home')} - {s.get('away')}")
 
                 elif data.get("type") == "INFO":
-                    # Welcome messages do not correspond to a specific command sent by run(), so we handle them here.
                     print(f"   ℹ️ [{self.name}] INFO: {data.get('message')}")
 
                 else:
-                    # This is a synchronous response to a command (status: OK/ERROR)
+                    # Command Response handling
                     if data.get("status") == "OK":
-                        # If we have standings, print them instead of "None"
                         if "standings" in data:
-                            print(f"   ✅ [{self.name}] Success: Retrieved Standings")
-                            # Optional: Print the actual data if you want to see it
-                            # print(json.dumps(data["standings"], indent=3))
+                            print(f"   ✅ [{self.name}] Standings Received")
                         else:
                             print(f"   ✅ [{self.name}] Success: {data.get('message')}")
                     elif data.get("status") == "ERROR":
@@ -124,70 +124,94 @@ class TestClient(threading.Thread):
             return [self.resolve_placeholders(i) for i in payload]
         elif isinstance(payload, str) and payload.startswith("$"):
             key = payload[1:]
-            if key in SHARED_CONTEXT:
-                return SHARED_CONTEXT[key]
-            else:
-                # Keep the placeholder if not found, to make the error obvious in the server logs
-                return payload
+            return SHARED_CONTEXT.get(key, payload)
         else:
             return payload
 
 
-# --- SCENARIO 1: CONCURRENCY ---
+# --- SCENARIO 1: AGGRESSIVE CONCURRENCY ---
 def run_concurrency_scenario():
-    print("\n" + "=" * 50)
-    print("SCENARIO 1: CONCURRENCY & OBSERVERS")
-    print("Testing: 2 Watchers, 1 Updater interacting simultaneously.")
-    print("=" * 50 + "\n")
+    print("\n" + "=" * 60)
+    print("SCENARIO 1: AGGRESSIVE CONCURRENCY & RACE CONDITIONS")
+    print("Testing: 3 Writers (spamming scores) + 4 Watchers simultaneously.")
+    print("Target: Ensure thread safety (RLock) prevents lost updates.")
+    print("=" * 60 + "\n")
 
-    # 1. Admin creates a game and saves the IDs
-    admin_actions = [
+    # 1. Setup (Single Threaded)
+    print("[1/4] Setting up Game Environment...")
+    setup_actions = [
         {"payload": {"command": "USER", "username": "Admin"}},
-        {"payload": {"command": "CREATE_TEAM", "name": "Team A"}, "save_id": "team_a"},
-        {"payload": {"command": "CREATE_TEAM", "name": "Team B"}, "save_id": "team_b"},
-        {"payload": {"command": "CREATE_GAME", "home_id": "$team_a", "away_id": "$team_b"}, "save_id": "conc_game"}
+        {"payload": {"command": "CREATE_TEAM", "name": "Red Team"}, "save_id": "c_t1"},
+        {"payload": {"command": "CREATE_TEAM", "name": "Blue Team"}, "save_id": "c_t2"},
+        {"payload": {"command": "CREATE_GAME", "home_id": "$c_t1", "away_id": "$c_t2"}, "save_id": "race_game"},
+        {"payload": {"command": "START", "id": "$race_game"}}
     ]
 
-    # 2. Watcher 1 (Alice)
-    alice_actions = [
-        {"payload": {"command": "USER", "username": "Alice"}},
-        {"wait": 2},
-        {"payload": {"command": "WATCH", "id": "$conc_game"}},
-        {"wait": 5}
+    setup_client = TestClient("SetupAdmin", setup_actions)
+    setup_client.start()
+    setup_client.join()
+
+    # 2. Prepare The Swarm
+    # CHANGED: Reduced counts to lower log volume
+    NUM_WRITERS = 3
+    SCORES_PER_WRITER = 10
+    TOTAL_EXPECTED_SCORE = NUM_WRITERS * SCORES_PER_WRITER
+
+    print(f"[2/4] Preparing {NUM_WRITERS} writers x {SCORES_PER_WRITER} updates each...")
+    print(f"      Expect final score to be exactly: {TOTAL_EXPECTED_SCORE}")
+
+    writers = []
+    watchers = []
+
+    # CHANGED: Watcher count reduced to 4
+    for i in range(4):
+        w_actions = [
+            {"payload": {"command": "USER", "username": f"Watcher_{i}"}},
+            {"payload": {"command": "WATCH", "id": "$race_game"}},
+            {"wait": 3}
+        ]
+        watchers.append(TestClient(f"Watcher_{i}", w_actions))
+
+    # Create Writers (Active load - NO WAITS to maximize contention)
+    for i in range(NUM_WRITERS):
+        side = "HOME" if i % 2 == 0 else "AWAY"
+        spam_actions = [{"payload": {"command": "USER", "username": f"Spammer_{i}"}}]
+        # CHANGED: Loop runs 10 times instead of 50
+        for _ in range(SCORES_PER_WRITER):
+            spam_actions.append({
+                "payload": {"command": "SCORE", "id": "$race_game", "points": 1, "side": side}
+            })
+        writers.append(TestClient(f"Writer_{side}_{i}", spam_actions))
+
+    # 3. Launch
+    print(f"[3/4] Launching threads...")
+    start_time = time.time()
+
+    for w in watchers: w.start()
+    for w in writers: w.start()
+
+    for w in writers: w.join()
+    for w in watchers: w.join()
+
+    print(f"\n[4/4] Stress test finished in {time.time() - start_time:.2f} seconds.")
+
+    # 4. Verification
+    print("      Verifying data integrity...")
+    verifier_actions = [
+        {"payload": {"command": "USER", "username": "Judge"}},
+        {"payload": {"command": "WATCH", "id": "$race_game"}},  # Must Watch first!
+        {"payload": {"command": "SCORE", "id": "$race_game", "points": 0, "side": "HOME"}},  # Trigger notification
+        {"wait": 2}
     ]
 
-    # 3. Watcher 2 (Bob)
-    bob_actions = [
-        {"payload": {"command": "USER", "username": "Bob"}},
-        {"wait": 2},
-        {"payload": {"command": "WATCH", "id": "$conc_game"}},
-        {"wait": 5}
-    ]
+    verifier = TestClient("Verifier", verifier_actions)
+    verifier.start()
+    verifier.join()
 
-    # 4. Updater (Charlie)
-    charlie_actions = [
-        {"payload": {"command": "USER", "username": "Charlie"}},
-        {"wait": 3},
-        {"payload": {"command": "START", "id": "$conc_game"}},
-        {"payload": {"command": "SCORE", "id": "$conc_game", "points": 2, "side": "HOME"}},
-        {"payload": {"command": "SCORE", "id": "$conc_game", "points": 3, "side": "AWAY"}},
-    ]
-
-    t_admin = TestClient("Admin", admin_actions)
-    t_alice = TestClient("Alice", alice_actions)
-    t_bob = TestClient("Bob", bob_actions)
-    t_charlie = TestClient("Charlie", charlie_actions)
-
-    t_admin.start()
-    t_admin.join()
-
-    t_alice.start()
-    t_bob.start()
-    t_charlie.start()
-
-    t_alice.join()
-    t_bob.join()
-    t_charlie.join()
+    print("\n" + "-" * 60)
+    print(f"Target Score Sum (Home + Away): {TOTAL_EXPECTED_SCORE}")
+    print("Check the [Verifier] NOTIFIED message above.")
+    print("-" * 60 + "\n")
 
 
 # --- SCENARIO 2: LEAGUE TOURNAMENT ---
