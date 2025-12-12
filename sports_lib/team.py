@@ -1,12 +1,18 @@
-from typing import Any, Dict
-from constants import TeamMessages
+from typing import Any, Dict, List
 
 
 class Team:
-    """Represents a sports team, its players, and custom attributes."""
+    """Represents a sports team, its players, and custom attributes.
+
+    Refactored for Phase 3:
+    - Removed print statements (statelessness).
+    - Added proper exception raising for error handling.
+    """
 
     def __init__(self, name: str) -> None:
         """Initializes a new Team with a given name."""
+        if not name:
+            raise ValueError("Team name cannot be empty.")
         self.team_name = name
         self.players: Dict[str, Dict[str, int]] = {}
         self._generic_attrs: Dict[str, Any] = {}
@@ -16,21 +22,19 @@ class Team:
         return self.team_name
 
     def __setitem__(self, key: str, value: Any) -> None:
-        """Enables setting custom attributes using dictionary-like syntax."""
-        print(TeamMessages.setting_attribute(key, str(value)))
+        """Enables setting custom attributes using dictionary-like syntax.
+
+        Example: team['city'] = 'Istanbul'
+        """
         self._generic_attrs[key] = value
 
     def __getattr__(self, key: str) -> Any:
         """Enables accessing custom attributes using dot notation.
 
-        This is a fallback that allows attributes set via `__setitem__` (like
-        `team['city'] = 'Istanbul'`) to be accessed as `team.city`.
-
         Raises:
-            AttributeError: If the attribute doesn't exist as a standard or
-                            custom attribute.
+            AttributeError: If the attribute doesn't exist.
         """
-        # Prevent infinite recursion if _generic_attrs is missing during unpickling
+        # Safety check for unpickling or initialization issues
         if key == "_generic_attrs":
             raise AttributeError()
 
@@ -42,7 +46,11 @@ class Team:
             )
 
     def __delattr__(self, key: str) -> None:
-        """Enables deleting a custom attribute using `del`."""
+        """Enables deleting a custom attribute using `del`.
+
+        Raises:
+            AttributeError: If the attribute does not exist in _generic_attrs.
+        """
         if key in self._generic_attrs:
             del self._generic_attrs[key]
         else:
@@ -51,26 +59,37 @@ class Team:
             )
 
     def addplayer(self, name: str, no: int) -> None:
-        """Adds a player to the team's roster."""
+        """Adds or updates a player in the team's roster.
+
+        Args:
+            name: The name of the player.
+            no: The jersey number.
+        """
+        # Pylance Note: We rely on the API View to ensure 'no' is an int
+        # before calling this method, matching the type hint 'no: int'.
         self.players[name] = {"no": no}
 
     def delplayer(self, name: str) -> None:
-        """Removes a player from the team's roster."""
+        """Removes a player from the team's roster.
+
+        Raises:
+            ValueError: If the player is not found.
+        """
         try:
             del self.players[name]
         except KeyError:
-            print(TeamMessages.player_not_found(name))
+            raise ValueError(f"Player '{name}' not found in team '{self.team_name}'.")
 
 
 class PlaceholderTeam(Team):
     """A placeholder for a team that will be determined by a future game.
 
-    In elimination tournaments, this class is used to build future rounds
-    before the winners of the current round are known.
+    Used in tournament generation (Elimination brackets).
     """
 
-    def __init__(self, description: str, source_games: list[int]) -> None:
+    def __init__(self, description: str, source_games: List[int]) -> None:
         """Initializes the placeholder with a description and source game IDs."""
+        # Initialize parent with the description as the team name
         super().__init__(description)
         self.source_games = source_games
         self.is_placeholder = True

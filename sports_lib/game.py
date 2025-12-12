@@ -1,18 +1,19 @@
 from datetime import datetime
 from time import monotonic
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 
-from team import Team
-from constants import GameState, GameMessages, GameSettings
-from helpers import TimeHelper, PlayerHelper, ScoreHelper
+from .team import Team
+from .constants import GameState, GameSettings
+from .helpers import TimeHelper, PlayerHelper, ScoreHelper
 
 
 class Game:
     """Manages the state and logic of a single game between two teams.
 
-    This class tracks game time, score, and state transitions (e.g., ready,
-    running, paused, ended). It also implements the observer pattern, allowing
-    other objects to be notified of significant game events.
+    Refactored for Phase 3:
+    - Removed Observer pattern (watch/unwatch).
+    - Removed print statements (statelessness).
+    - Added exception handling for invalid state transitions.
     """
 
     def __init__(
@@ -22,7 +23,7 @@ class Game:
         id_: int,
         datetime: datetime,
         state: GameState = GameState.READY,
-        group: str | None = None,
+        group: Optional[str] = None,
     ) -> None:
         self.home_ = home
         self.away_ = away
@@ -45,31 +46,12 @@ class Game:
             name: {"no": data["no"], "score": GameSettings.DEFAULT_SCORE}
             for name, data in away.players.items()
         }
-        self._observers: List[Any] = []
 
         self.timeline: List[Tuple[str, str, str, int]] = []
 
     def __str__(self) -> str:
         """Returns the string representation of the Game."""
         return f"Game: {self.home().team_name} vs {self.away().team_name}"
-
-    # Add this method to exclude observers from pickling
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        # Do not save observers (they are runtime connections)
-        state['_observers'] = []
-        return state
-
-    # Add this to ensure proper restoration
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        if '_observers' not in self.__dict__:
-            self._observers = []
-
-    def _notify_observers(self) -> None:
-        """Notifies all registered observers of a state change."""
-        for obj in self._observers:
-            obj.update(self)
 
     def id(self) -> int:
         """Returns the unique identifier for the game."""
@@ -84,71 +66,80 @@ class Game:
         return self.away_
 
     def start(self) -> None:
-        """Transitions the game from READY to RUNNING state."""
+        """Transitions the game from READY to RUNNING state.
+
+        Raises:
+            ValueError: If the game is not in the READY state.
+        """
         if self.state == GameState.READY:
             self.state = GameState.RUNNING
             self.gametime = monotonic()
-            print(GameMessages.GAME_STARTED)
-            self._notify_observers()
-        elif self.state == GameState.RUNNING:
-            print(GameMessages.GAME_ALREADY_RUNNING)
-        elif self.state == GameState.PAUSED:
-            print(GameMessages.GAME_PAUSED_USE_RESUME)
         else:
-            print(GameMessages.GAME_ALREADY_ENDED)
+            if self.state == GameState.RUNNING:
+                raise ValueError("Game is already running.")
+            elif self.state == GameState.PAUSED:
+                raise ValueError("Game is paused. Use resume() to continue.")
+            elif self.state == GameState.ENDED:
+                raise ValueError("Game is already ended.")
+            else:
+                raise ValueError(f"Cannot start game in state {self.state}")
 
     def pause(self) -> None:
-        """Transitions the game from RUNNING to PAUSED state."""
+        """Transitions the game from RUNNING to PAUSED state.
+
+        Raises:
+            ValueError: If the game is not RUNNING.
+        """
         if self.state == GameState.RUNNING:
             self.total_time += monotonic() - self.gametime
             self.state = GameState.PAUSED
-            print(GameMessages.GAME_PAUSED)
-            self._notify_observers()
-        elif self.state == GameState.PAUSED:
-            print(GameMessages.GAME_ALREADY_PAUSED)
-        elif self.state == GameState.ENDED:
-            print(GameMessages.GAME_ALREADY_ENDED)
         else:
-            print(GameMessages.GAME_NOT_RUNNING)
+            if self.state == GameState.PAUSED:
+                raise ValueError("Game is already paused.")
+            elif self.state == GameState.ENDED:
+                raise ValueError("Game is already ended.")
+            else:
+                raise ValueError("Cannot pause: Game is not running.")
 
     def resume(self) -> None:
-        """Transitions the game from PAUSED back to RUNNING state."""
+        """Transitions the game from PAUSED back to RUNNING state.
+
+        Raises:
+            ValueError: If the game is not PAUSED.
+        """
         if self.state == GameState.PAUSED:
             self.state = GameState.RUNNING
             self.gametime = monotonic()
-            print(GameMessages.GAME_RESUMED)
-            self._notify_observers()
-        elif self.state == GameState.RUNNING:
-            print(GameMessages.GAME_ALREADY_RUNNING)
-        elif self.state == GameState.READY:
-            print(GameMessages.GAME_NOT_STARTED)
         else:
-            print(GameMessages.GAME_ALREADY_ENDED)
+            if self.state == GameState.RUNNING:
+                raise ValueError("Game is already running.")
+            elif self.state == GameState.READY:
+                raise ValueError("Game has not started yet.")
+            else:
+                raise ValueError("Game is already ended.")
 
     def end(self) -> None:
-        """Transitions the game to the ENDED state, finalizing the time."""
+        """Transitions the game to the ENDED state, finalizing the time.
+
+        Raises:
+            ValueError: If the game is already ENDED.
+        """
         if self.state == GameState.ENDED:
-            print(GameMessages.GAME_ALREADY_ENDED)
-            return
+            raise ValueError("Game is already ended.")
 
         if self.state == GameState.RUNNING:
             self.total_time += monotonic() - self.gametime
 
         self.state = GameState.ENDED
-        print(GameMessages.GAME_ENDED)
 
-        self._notify_observers()
-
-    def score(self, points: int, team: Team, player: str | None = None) -> None:
+    def score(self, points: int, team: Team, player: Optional[str] = None) -> None:
         """Records a score for a team and optionally a player.
 
-        This method only functions when the game is in the RUNNING state. It
-        updates the team's score, the player's score, and adds an entry to
-        the game's timeline.
+        Raises:
+            ValueError: If the game is not RUNNING or the team is invalid.
         """
         if self.state != GameState.RUNNING:
-            print(GameMessages.CANNOT_SCORE_NOT_RUNNING)
-            return
+            raise ValueError("Cannot score, game is not running.")
 
         current_time = TimeHelper.calculate_current_time(
             self.state, self.total_time, self.gametime
@@ -158,7 +149,6 @@ class Game:
 
         if team == self.home_:
             self._score_for_team(
-                team=team,
                 team_type="Home",
                 points=points,
                 time_str=time_str,
@@ -170,7 +160,6 @@ class Game:
 
         elif team == self.away_:
             self._score_for_team(
-                team=team,
                 team_type="Away",
                 points=points,
                 time_str=time_str,
@@ -179,37 +168,26 @@ class Game:
                 players_dict=self.away_players,
             )
             self.away_score += points
-
-        self._notify_observers()
+        else:
+            raise ValueError(
+                f"Team '{team.team_name}' is not participating in this game."
+            )
 
     def _score_for_team(
         self,
-        team: Team,
         team_type: str,
         points: int,
         time_str: str,
-        player: str | None,
+        player: Optional[str],
         player_name: str,
         players_dict: Dict[str, Dict[str, int]],
     ) -> None:
         """Internal helper to encapsulate the logic of recording a score."""
-        print(GameMessages.team_scored(team.team_name, points))
-
         timeline_entry = ScoreHelper.create_timeline_entry(
             time_str, team_type, player_name, points
         )
         self.timeline.append(timeline_entry)
         PlayerHelper.update_player_score(players_dict, player, points)
-
-    def watch(self, obj: Any) -> None:
-        """Adds the obj as an observer for the game."""
-        if obj not in self._observers:
-            self._observers.append(obj)
-
-    def unwatch(self, obj: Any) -> None:
-        """Remove the obj from list of observers."""
-        if obj in self._observers:
-            self._observers.remove(obj)
 
     def stats(self) -> Dict[str, Any]:
         """Returns a dictionary containing the current game statistics."""

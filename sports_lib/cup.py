@@ -54,13 +54,13 @@ class Cup:
     # Add this method
     def __getstate__(self):
         state = self.__dict__.copy()
-        state['_observers'] = []
+        state["_observers"] = []
         return state
 
     # Add this method
     def __setstate__(self, state):
         self.__dict__.update(state)
-        if '_observers' not in self.__dict__:
+        if "_observers" not in self.__dict__:
             self._observers = []
 
     def __str__(self) -> str:
@@ -86,50 +86,48 @@ class Cup:
 
     def _generate_league(self, double: bool = False) -> None:
         """Generates round-robin league matches with proper scheduling.
-        
+
         Uses the Round-Robin algorithm to ensure each team plays one game per round,
         avoiding back-to-back matches for any team.
         """
         import copy
-        
+
         teams = copy.copy(self.teams)
         n = len(teams)
-        
+
         # If odd number of teams, add a "bye" (dummy team)
         if n % 2 == 1:
             teams.append(None)  # None = bye
             n += 1
-        
+
         current_date = self._current_date
-        
+
         # Round-Robin algorithm: n-1 rounds for n teams
         for round_num in range(n - 1):
             # Create matches for this round
             for i in range(n // 2):
                 home_idx = i
                 away_idx = n - 1 - i
-                
+
                 home_team = teams[home_idx]
                 away_team = teams[away_idx]
-                
+
                 # Skip if either team is None (bye)
                 if home_team is None or away_team is None:
                     continue
-                
+
                 # Create game
                 game = self._create_game_instance(
-                    home=home_team, 
-                    away=away_team, 
-                    datetime=current_date
+                    home=home_team, away=away_team, datetime=current_date
                 )
                 self.games.append(game)
-            
+
             # Move to next round date
             current_date += self.interval
-            
+
             # Rotate teams (keep first team fixed, rotate others)
             teams = [teams[0]] + [teams[-1]] + teams[1:-1]
-        
+
         # If double league, create reverse fixtures
         if double:
             first_round_count = len(self.games)
@@ -151,14 +149,10 @@ class Cup:
         if self.repo:
             # SERVER MODE: Register with Repo to get a Global ID
             game_id = self.repo.create(
-                type="game",
-                home=home,
-                away=away,
-                datetime=datetime,
-                group=group
+                type="game", home=home, away=away, datetime=datetime, group=group
             )
             # Fetch the actual game object back from the repo
-            return self.repo._objects[game_id]['instance']
+            return self.repo._objects[game_id]["instance"]
         else:
             # STANDALONE MODE: Use internal counter (for unit tests)
             game = Game(
@@ -166,7 +160,7 @@ class Cup:
                 away=away,
                 id_=self._game_id_counter,
                 datetime=datetime,
-                group=group
+                group=group,
             )
             self._game_id_counter += 1
             return game
@@ -407,7 +401,9 @@ class Cup:
             away_team = teams[i + 1]
 
             # First leg
-            game = self._create_game_instance(home=home_team, away=away_team, datetime=current_date)
+            game = self._create_game_instance(
+                home=home_team, away=away_team, datetime=current_date
+            )
             round_games.append(game)
             current_date += self.interval
 
@@ -594,7 +590,9 @@ class Cup:
         pairs = list(combinations(group_teams, 2))
 
         for home_team, away_team in pairs:
-            game = self._create_game_instance(home=home_team, away=away_team, datetime=current_date, group=group_name)
+            game = self._create_game_instance(
+                home=home_team, away=away_team, datetime=current_date, group=group_name
+            )
             group_games.append(game)
             current_date += self.interval
 

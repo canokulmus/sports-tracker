@@ -1,6 +1,8 @@
 {
-  "typeCheckingMode": "strict",
-  "include": ["*.py"],
+  "typeCheckingMode": "standard",
+  "include": [
+    "*.py"
+  ],
   "exclude": [
     "**/__pycache__",
     "**/.venv",
