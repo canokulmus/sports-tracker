@@ -7,7 +7,7 @@ import sys
 
 def main():
     """Run administrative tasks."""
-    # This points to your settings file. 'mysite' is the folder name of your project.
+    # Ensure this points to 'phase3_site.settings'
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "phase3_site.settings")
     try:
         from django.core.management import execute_from_command_line

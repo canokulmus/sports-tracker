@@ -9,7 +9,7 @@ management.
 from time import monotonic
 from typing import Tuple
 
-from constants import GameSettings, GameState
+from .constants import GameSettings, GameState
 
 
 class TimeHelper:
