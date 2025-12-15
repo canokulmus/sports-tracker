@@ -442,9 +442,11 @@ class Cup:
             return self._gametree_group()
 
     def _gametree_elimination(self) -> Dict[str, List[Dict[str, Any]]]:
-        """Builds the game tree specifically for an elimination bracket."""
+        """Builds the game tree specifically for an elimination bracket.
+        
+        Now resolves placeholders to actual winners when games are played.
+        """
         tree: Dict[str, List[Dict[str, Any]]] = {}
-
         round_names = self._get_round_names(len(self.rounds))
 
         for round_num, round_games in enumerate(self.rounds):
@@ -452,11 +454,20 @@ class Cup:
             tree[round_name] = []
 
             for game in round_games:
+                # Resolve placeholders to actual team names if possible
+                home_name = self._resolve_placeholder(game.home())
+                away_name = self._resolve_placeholder(game.away())
+                
                 game_info = {
                     "game_id": game.id(),
-                    "home": game.home().team_name,
-                    "away": game.away().team_name,
+                    "home": home_name,
+                    "away": away_name,
                     "datetime": game.datetime.strftime("%Y-%m-%d %H:%M"),
+                    "state": game.state.name,
+                    "score": {
+                        "home": game.home_score,
+                        "away": game.away_score
+                    } if game.state == GameState.ENDED else None
                 }
                 tree[round_name].append(game_info)
 
@@ -547,6 +558,8 @@ class Cup:
 
         This method shuffles teams, divides them into a specified number of
         groups, and then creates a round-robin league within each group.
+        
+        After group stage, generates COMPLETE playoff bracket (all rounds).
         """
         shuffled_teams = self.teams.copy()
         random.shuffle(shuffled_teams)
@@ -574,41 +587,73 @@ class Cup:
             self.group_games[group_name] = group_games
             self.games.extend(group_games)
 
-        # The playoff bracket is generated later, after group games are played.
+        # Playoff info (bracket will be generated after group stage)
         print(f"\n   Playoff: {self.playoff_teams} teams will advance.")
         print(
             "   Playoff matches will be determined after the group stage is completed."
         )
+        # Initialize empty playoff structure
+        self.playoff_games = []
+        self.playoff_rounds: List[List[Game]] = []  # Add this attribute!
 
-    def _create_group_league(
-        self, group_teams: List[Team], group_name: str, double: bool
-    ) -> List[Game]:
-        """Helper to create round-robin matches for a single group."""
+    def _create_group_league(self, group_teams: List[Team], group_name: str, double: bool) -> List[Game]:
+        """Helper to create round-robin matches for a single group.
+        
+        Uses proper round-robin algorithm to ensure balanced scheduling.
+        """
+        import copy
+        
+        teams = copy.copy(group_teams)
+        n = len(teams)
+        
+        # If odd number, add bye
+        if n % 2 == 1:
+            teams.append(None)
+            n += 1
+        
         group_games: List[Game] = []
         current_date = self._current_date
-
-        pairs = list(combinations(group_teams, 2))
-
-        for home_team, away_team in pairs:
-            game = self._create_game_instance(
-                home=home_team, away=away_team, datetime=current_date, group=group_name
-            )
-            group_games.append(game)
-            current_date += self.interval
-
-            # If double, create the reverse fixture.
-            if double:
-                game2 = Game(
-                    home=away_team,
-                    away=home_team,
-                    id_=self._game_id_counter,
+        
+        # Round-Robin algorithm: n-1 rounds for n teams
+        for round_num in range(n - 1):
+            # Create matches for this round
+            for i in range(n // 2):
+                home_idx = i
+                away_idx = n - 1 - i
+                
+                home_team = teams[home_idx]
+                away_team = teams[away_idx]
+                
+                # Skip if either team is None (bye)
+                if home_team is None or away_team is None:
+                    continue
+                
+                game = self._create_game_instance(
+                    home=home_team,
+                    away=away_team,
                     datetime=current_date,
-                    group=group_name,
+                    group=group_name
+                )
+                group_games.append(game)
+                current_date += self.interval
+            
+            # Rotate teams (keep first fixed, rotate others)
+            teams = [teams[0]] + [teams[-1]] + teams[1:-1]
+        
+        # If double, create reverse fixtures
+        if double:
+            first_round_count = len(group_games)
+            for i in range(first_round_count):
+                original_game = group_games[i]
+                game2 = self._create_game_instance(
+                    home=original_game.away(),
+                    away=original_game.home(),
+                    datetime=current_date,
+                    group=group_name
                 )
                 group_games.append(game2)
-                self._game_id_counter += 1
                 current_date += self.interval
-
+        
         return group_games
 
     def _calculate_group_standings(
@@ -677,10 +722,9 @@ class Cup:
         return standings_list
 
     def generate_playoffs(self) -> None:
-        """Generates the playoff bracket after the group stage is complete.
-
-        This method determines which teams qualify based on group rankings and
-        wild card rules, then creates an elimination-style bracket for them.
+        """Generates the COMPLETE playoff bracket after group stage.
+        
+        Creates all playoff rounds (QF → SF → F) similar to ELIMINATION.
         """
         if self.type not in [CupType.GROUP, CupType.GROUP2]:
             raise ValueError("generate_playoffs() only works for GROUP tournaments")
@@ -736,53 +780,225 @@ class Cup:
 
         random.shuffle(playoff_teams)
 
-        playoff_round = self._create_elimination_round(
-            playoff_teams, double, is_first_round=True
+        # Generate COMPLETE playoff bracket (all rounds)
+        
+        self._generate_playoff_bracket(playoff_teams, double)
+        
+    def _generate_playoff_bracket(self, teams: List[Team], double: bool) -> None:
+        """Generate complete playoff bracket (QF → SF → F).
+        
+        Similar to _generate_elimination() but for playoff teams only.
+        
+        Args:
+            teams: Qualified teams from group stage
+            double: Whether to play home/away (GROUP2)
+        """
+        import copy
+        
+        current_teams = copy.copy(teams)
+        
+        # Handle odd number (bye)
+        bye_team: Optional[Team] = None
+        if len(current_teams) % 2 == 1:
+            bye_team = current_teams.pop()
+            print(f"   {bye_team.team_name} has a bye (advances to next round).")
+        
+        # Generate first round
+        first_round = self._create_elimination_round(
+            current_teams, double, is_first_round=True
         )
-        self.playoff_games = playoff_round
-        self.games.extend(playoff_round)
-
-        print(f"\n   Playoff Round 1: {len(playoff_round)} games created.")
+        self.playoff_rounds.append(first_round)
+        self.playoff_games.extend(first_round)
+        self.games.extend(first_round)
+        
+        print(f"\n   Playoff Round 1: {len(first_round)} games created.")
+        
+        # Prepare next round teams (placeholders)
+        next_round_teams: List[Team] = []
+        
+        if bye_team is not None:
+            next_round_teams.append(bye_team)
+        
+        for i in range(0, len(first_round), 2 if double else 1):
+            if double:
+                game1_id = first_round[i].id()
+                game2_id = first_round[i + 1].id()
+                placeholder = PlaceholderTeam(
+                    f"Winner of Games {game1_id} & {game2_id}", [game1_id, game2_id]
+                )
+            else:
+                game_id = first_round[i].id()
+                placeholder = PlaceholderTeam(f"Winner of Game {game_id}", [game_id])
+            next_round_teams.append(placeholder)
+        
+        # Generate subsequent rounds until we have a champion
+        while len(next_round_teams) > 1:
+            round_bye: Optional[Team] = None
+            if len(next_round_teams) % 2 == 1:
+                round_bye = next_round_teams.pop()
+                print(f"   {round_bye.team_name} has a bye in this round.")
+            
+            next_round = self._create_elimination_round(
+                next_round_teams, double, is_first_round=False
+            )
+            self.playoff_rounds.append(next_round)
+            self.playoff_games.extend(next_round)
+            self.games.extend(next_round)
+            
+            round_num = len(self.playoff_rounds)
+            print(f"\n   Playoff Round {round_num}: {len(next_round)} games created.")
+            
+            # Prepare next round
+            next_round_teams = []
+            
+            if round_bye is not None:
+                next_round_teams.append(round_bye)
+            
+            for i in range(0, len(next_round), 2 if double else 1):
+                if double:
+                    game1_id = next_round[i].id()
+                    game2_id = next_round[i + 1].id()
+                    placeholder = PlaceholderTeam(
+                        f"Winner of Games {game1_id} & {game2_id}", [game1_id, game2_id]
+                    )
+                else:
+                    game_id = next_round[i].id()
+                    placeholder = PlaceholderTeam(
+                        f"Winner of Game {game_id}", [game_id]
+                    )
+                next_round_teams.append(placeholder)
+        
+        print(f"\n   ✅ Complete playoff bracket generated!")
+        print(f"   Total playoff rounds: {len(self.playoff_rounds)}")
+        print(f"   Total playoff games: {len(self.playoff_games)}")
 
     def _gametree_group(self) -> Dict[str, Any]:
-        """Builds the game tree for a group-based tournament."""
+        """Builds the game tree for a group-based tournament.
+        
+        Now includes ALL playoff rounds (not just first round).
+        """
         tree: Dict[str, Any] = {"Groups": {}, "Playoffs": {}}
 
+        # Groups (unchanged)
         for group_name in sorted(self.groups.keys()):
             tree["Groups"][group_name] = []
-
             group_games = self.group_games[group_name]
+            
             for game in group_games:
                 game_info = {
                     "game_id": game.id(),
-                    "home": game.home().team_name,
-                    "away": game.away().team_name,
+                    "home": self._resolve_placeholder(game.home()),
+                    "away": self._resolve_placeholder(game.away()),
                     "datetime": game.datetime.strftime("%Y-%m-%d %H:%M"),
+                    "state": game.state.name,
+                    "score": {
+                        "home": game.home_score,
+                        "away": game.away_score
+                    } if game.state == GameState.ENDED else None
                 }
                 tree["Groups"][group_name].append(game_info)
 
+        # Playoffs (Show ALL rounds)
         if len(self.playoff_games) > 0:
-            # This logic assumes a simple single-round playoff for now, but
-            # calculates the number of rounds for future expansion.
-            num_playoff_teams = len(self.playoff_games) * 2
-            num_playoff_rounds = 0
-            temp = num_playoff_teams
-            while temp > 1:
-                temp //= 2
-                num_playoff_rounds += 1
-
+            # Calculate number of playoff rounds
+            num_playoff_teams = len(self.playoff_rounds[0]) * 2 if self.playoff_rounds else 0
+            num_playoff_rounds = len(self.playoff_rounds)
+            
             round_names = self._get_round_names(num_playoff_rounds)
-
-            # Currently, only the first playoff round is populated.
-            tree["Playoffs"][round_names[0]] = []
-
-            for game in self.playoff_games:
-                game_info = {
-                    "game_id": game.id(),
-                    "home": game.home().team_name,
-                    "away": game.away().team_name,
-                    "datetime": game.datetime.strftime("%Y-%m-%d %H:%M"),
-                }
-                tree["Playoffs"][round_names[0]].append(game_info)
+            
+            # Add each playoff round to tree
+            for round_num, round_games in enumerate(self.playoff_rounds):
+                round_name = round_names[round_num]
+                tree["Playoffs"][round_name] = []
+                
+                for game in round_games:
+                    game_info = {
+                        "game_id": game.id(),
+                        "home": self._resolve_placeholder(game.home()),
+                        "away": self._resolve_placeholder(game.away()),
+                        "datetime": game.datetime.strftime("%Y-%m-%d %H:%M"),
+                        "state": game.state.name,
+                        "score": {
+                            "home": game.home_score,
+                            "away": game.away_score
+                        } if game.state == GameState.ENDED else None
+                    }
+                    tree["Playoffs"][round_name].append(game_info)
 
         return tree
+
+    def _resolve_placeholder(self, team: Team) -> str:
+        """Resolves a placeholder team to actual winner if game is played.
+        
+        Recursively resolves nested placeholders (e.g., Winner of Winner of Game X).
+        
+        Args:
+            team: Team object (could be PlaceholderTeam or real Team)
+            
+        Returns:
+            Team name (either real team name or placeholder description)
+        """
+        # If real team, return its name
+        if not isinstance(team, PlaceholderTeam):
+            return team.team_name
+        
+        # If placeholder, check its source games
+        placeholder: PlaceholderTeam = team
+        source_games = placeholder.source_games
+        
+        # If single game source
+        if len(source_games) == 1:
+            game_id = source_games[0]
+            source_game = self._find_game_by_id(game_id)
+            
+            if source_game and source_game.state == GameState.ENDED:
+                winner = self._get_game_winner(source_game)
+                if winner:
+                    return self._resolve_placeholder(winner)
+            
+            return f"Winner of Game {game_id}"
+        
+        else:
+            game_ids_str = ", ".join(str(g) for g in source_games)
+            
+            # If both games ended, determine aggregate winner
+            all_ended = True
+            for game_id in source_games:
+                game = self._find_game_by_id(game_id)
+                if not game or game.state != GameState.ENDED:
+                    all_ended = False
+                    break
+            
+            if all_ended:
+                # Aggregate score calculation for two-legged ties
+                first_game = self._find_game_by_id(source_games[0])
+                if first_game:
+                    winner = self._get_game_winner(first_game)
+                    if winner:
+                        # ✅ Recursive resolve
+                        return self._resolve_placeholder(winner)
+            
+            return f"Winner of Games [{game_ids_str}]"
+
+    def _find_game_by_id(self, game_id: int) -> Optional[Game]:
+        """Finds a game by its ID in the cup's games list."""
+        for game in self.games:
+            if game.id() == game_id:
+                return game
+        return None
+
+
+    def _get_game_winner(self, game: Game) -> Optional[Team]:
+        """Returns the winner of a completed game.
+        
+        Returns None if game is draw or not ended.
+        """
+        if game.state != GameState.ENDED:
+            return None
+        
+        if game.home_score > game.away_score:
+            return game.home()
+        elif game.away_score > game.home_score:
+            return game.away()
+        else:
+            return None

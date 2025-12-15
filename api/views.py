@@ -78,7 +78,11 @@ def team_collection(request):
             new_id = REPO.create(type="team", name=team_name)
 
             # 3. Return the ID of the new team
-            return send_success({"id": new_id, "message": "Team created successfully"})
+            return send_success({
+                "id": new_id, 
+                "message": "Team created successfully",
+                "name": team_name
+            })
 
         except json.JSONDecodeError:
             return send_error("Invalid JSON payload.")
