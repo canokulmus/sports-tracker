@@ -485,8 +485,9 @@ def cup_collection(request):
 def cup_detail(request, cup_id):
     """
     GET: Retrieve a specific cup.
-    DELETE: Delete a cup.
+    DELETE: Delete a cup AND all its associated games.
     """
+    # 1. We must get the cup object first to know which games to delete
     cup, error = get_cup_or_404(cup_id)
     if error:
         return send_error(error, status=404)
@@ -496,8 +497,33 @@ def cup_detail(request, cup_id):
 
     elif request.method == "DELETE":
         try:
+            # --- START CASCADING DELETE LOGIC ---
+
+            # 1. Collect all Game IDs associated with this cup
+            # We use a list comprehension to get IDs safely
+            game_ids_to_delete = [g.id() for g in cup.games]
+
+            deleted_games_count = 0
+
+            # 2. Iterate and delete each game from the Repository
+            for gid in game_ids_to_delete:
+                try:
+                    REPO.delete(gid)
+                    deleted_games_count += 1
+                except ValueError:
+                    # If a game was already deleted manually via /api/games/X/,
+                    # REPO.delete() will raise ValueError. We can safely ignore this.
+                    pass
+
+            # 3. Finally, delete the Cup itself
             REPO.delete(cup_id)
-            return send_success(message=f"Cup {cup_id} deleted successfully.")
+
+            # --- END CASCADING DELETE LOGIC ---
+
+            return send_success(
+                message=f"Cup {cup_id} and {deleted_games_count} associated games deleted successfully."
+            )
+
         except ValueError as e:
             return send_error(str(e), status=404)
 
