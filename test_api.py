@@ -1,6 +1,7 @@
 import requests
 import json
 import time
+import random
 
 BASE_URL = "http://127.0.0.1:8000/api"
 
@@ -177,14 +178,11 @@ def test_cup_comprehensive():
     games_per_group = 6
     games_per_round = 2
 
-    import random
-
     for i, gid in enumerate(game_ids):
         # Determine group
         group_idx = i // games_per_group
         group_name = chr(65 + group_idx)  # A, B, C, D
 
-        # Play the game (Random Score)
         h_score = random.randint(0, 3)
         a_score = random.randint(0, 3)
 
@@ -193,16 +191,14 @@ def test_cup_comprehensive():
             json={"state": "ENDED", "home_score": h_score, "away_score": a_score},
         )
 
-        # Check if a round finished
         if (i + 1) % games_per_round == 0:
             round_num = ((i % games_per_group) // games_per_round) + 1
             print(f"   ► End of Round {round_num} for Group {group_name}")
 
-            # GET STANDINGS
+            # Validate Live Standings
             s_res = requests.get(f"{BASE_URL}/cups/{cup_id}/standings/")
             standings = s_res.json()["value"]["Groups"][group_name]
 
-            # Print simplified table
             print(f"      {'Team':<12} {'P':<3} {'Pts':<3}")
             print(f"      {'-' * 20}")
             for row in standings:
@@ -218,27 +214,71 @@ def test_cup_comprehensive():
     data = res.json()["value"]
     assert_val(data["total_games"], 31, "Total Games (Group + Playoff)")
 
-    # 6. Verify Gametree & SHOW IT
-    log_step("Verify & Show Playoff Bracket")
+    # 6. Verify Gametree & SHOW IT (Initial)
+    log_step("Verify & Show Initial Playoff Bracket")
     res = requests.get(f"{BASE_URL}/cups/{cup_id}/gametree/")
     tree = res.json()["value"]
 
     if "Playoffs" in tree and tree["Playoffs"]:
         log_pass("Playoff Rounds structure retrieved")
-
-        print("\n" + "      🏆 VISUALIZING BRACKET")
-        print("      " + "=" * 30)
-
+        print("\n" + "      🏆 INITIAL BRACKET (Before Playing)")
+        print("      " + "=" * 35)
         for round_name, games in tree["Playoffs"].items():
             print(f"\n      📍 {round_name.upper()}")
             for g in games:
-                # Show matchup
-                home = g["home"]
-                away = g["away"]
-                print(f"         • {home:<20} vs {away}")
-        print("\n")
+                print(f"         • {g['home']:<20} vs {g['away']}")
     else:
         log_fail("Gametree", "Playoffs section populated", "Empty or Missing")
+
+    # 7. SIMULATE PLAYOFFS (Fixing the Placeholder Issue)
+    log_step("Simulate Playoff Matches (Resolve Placeholders)")
+
+    # We iterate round by round to show the progression
+    rounds = ["Quarter-Final", "Semi-Final", "Final"]
+
+    for round_name in rounds:
+        # Fetch current state of tree
+        res = requests.get(f"{BASE_URL}/cups/{cup_id}/gametree/")
+        current_round_games = res.json()["value"]["Playoffs"].get(round_name, [])
+
+        if not current_round_games:
+            continue
+
+        print(f"\n   ⚽ Playing {round_name} Matches...")
+
+        for g in current_round_games:
+            gid = g["game_id"]
+            # Force a winner (no draws in playoffs usually)
+            s1 = random.randint(2, 5)
+            s2 = random.randint(0, 1)
+
+            # Randomize who wins
+            if random.choice([True, False]):
+                s1, s2 = s2, s1
+
+            requests.put(
+                f"{BASE_URL}/games/{gid}/",
+                json={"state": "ENDED", "home_score": s1, "away_score": s2},
+            )
+            print(
+                f"      Game {gid}: {g['home']} ({s1}) vs {g['away']} ({s2}) -> ENDED"
+            )
+
+        # Now fetch tree again to show the NEXT round has real names
+        print(f"   🔄 Updating Bracket View...")
+        res = requests.get(f"{BASE_URL}/cups/{cup_id}/gametree/")
+        full_tree = res.json()["value"]["Playoffs"]
+
+        print("\n" + f"      🏆 BRACKET STATUS AFTER {round_name.upper()}")
+        print("      " + "=" * 40)
+
+        for r_name, games in full_tree.items():
+            print(f"\n      📍 {r_name.upper()}")
+            for g in games:
+                # This print will show Real Names instead of 'Winner of...'
+                # if the previous round was played correctly
+                status = "✅" if g["state"] == "ENDED" else "⏳"
+                print(f"         {status} {g['home']:<20} vs {g['away']}")
 
     return cup_id, team_ids
 
