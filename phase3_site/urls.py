@@ -1,9 +1,9 @@
 # mysite/urls.py
 from django.contrib import admin
-from django.urls import path, include  # Import 'include'
+from django.urls import path, include
 
 urlpatterns = [
-    path("admin/", admin.site.urls),  # You can ignore this
-    # This tells Django: "Any URL starting with api/ goes to api.urls"
+    path("admin/", admin.site.urls),
+    # Any URL starting with api/ goes to api.urls
     path("api/", include("api.urls")),
 ]

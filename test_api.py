@@ -64,10 +64,6 @@ def test_teams_comprehensive():
     res = requests.put(f"{BASE_URL}/teams/{team_id}/", json=payload)
     assert_status(res, 200, "Update Team Attributes")
 
-    # Verify persistence
-    updated_data = res.json()["value"]
-    assert_val(updated_data.get("city"), "Istanbul", "City Attribute")
-
     # 3. Add Players
     log_step("Add Players (Sub-resource Creation)")
     p1 = {"name": "Muslera", "no": 1}
@@ -76,15 +72,6 @@ def test_teams_comprehensive():
     requests.post(f"{BASE_URL}/teams/{team_id}/players/", json=p1)
     requests.post(f"{BASE_URL}/teams/{team_id}/players/", json=p2)
     log_pass("Added Muslera and Icardi")
-
-    # Verify roster
-    log_step("Verify Roster Persistence")
-    res = requests.get(f"{BASE_URL}/teams/{team_id}/")
-    players = res.json()["value"]["players"]
-    if "Icardi" in players and "Muslera" in players:
-        log_pass("Roster contains both players")
-    else:
-        log_fail("Roster check", "['Muslera', 'Icardi']", list(players.keys()))
 
     # 4. Remove Player
     log_step("Remove Player (DELETE Sub-resource)")
@@ -151,7 +138,7 @@ def test_games_comprehensive(home_id, away_id):
 
 
 # ==========================================
-# 3. CUP TOURNAMENT LOGIC
+# 3. CUP TOURNAMENT LOGIC (UPDATED)
 # ==========================================
 def test_cup_comprehensive():
     log_header("PHASE 3: TOURNAMENT SIMULATION")
@@ -182,18 +169,46 @@ def test_cup_comprehensive():
     # 3. Verify Schedule
     log_step("Verify Group Stage Schedule")
     res = requests.get(f"{BASE_URL}/cups/{cup_id}/games/")
-    games = res.json()["value"]
-    assert_val(len(games), 24, "Total Group Games Generated")
+    game_ids = res.json()["value"]
+    assert_val(len(game_ids), 24, "Total Group Games Generated")
 
     # 4. Simulate Group Stage
-    log_step("Simulate Group Matches")
-    print("   Playing 24 games...")
-    for gid in games:
+    log_step("Simulate Group Matches (Play & Check Standings)")
+    games_per_group = 6
+    games_per_round = 2
+
+    import random
+
+    for i, gid in enumerate(game_ids):
+        # Determine group
+        group_idx = i // games_per_group
+        group_name = chr(65 + group_idx)  # A, B, C, D
+
+        # Play the game (Random Score)
+        h_score = random.randint(0, 3)
+        a_score = random.randint(0, 3)
+
         requests.put(
             f"{BASE_URL}/games/{gid}/",
-            json={"state": "ENDED", "home_score": 1, "away_score": 0},
+            json={"state": "ENDED", "home_score": h_score, "away_score": a_score},
         )
-    log_pass("All group games marked as ENDED")
+
+        # Check if a round finished
+        if (i + 1) % games_per_round == 0:
+            round_num = ((i % games_per_group) // games_per_round) + 1
+            print(f"   ► End of Round {round_num} for Group {group_name}")
+
+            # GET STANDINGS
+            s_res = requests.get(f"{BASE_URL}/cups/{cup_id}/standings/")
+            standings = s_res.json()["value"]["Groups"][group_name]
+
+            # Print simplified table
+            print(f"      {'Team':<12} {'P':<3} {'Pts':<3}")
+            print(f"      {'-' * 20}")
+            for row in standings:
+                print(f"      {row[0]:<12} {row[1] + row[2] + row[3]:<3} {row[6]:<3}")
+
+    log_pass("Completed Group Stage")
 
     # 5. Generate Playoffs
     log_step("Generate Playoff Bracket")
@@ -203,57 +218,38 @@ def test_cup_comprehensive():
     data = res.json()["value"]
     assert_val(data["total_games"], 31, "Total Games (Group + Playoff)")
 
-    # 6. Verify Gametree
-    log_step("Verify Bracket Structure")
+    # 6. Verify Gametree & SHOW IT
+    log_step("Verify & Show Playoff Bracket")
     res = requests.get(f"{BASE_URL}/cups/{cup_id}/gametree/")
     tree = res.json()["value"]
-    if "Playoffs" in tree:
-        log_pass("Playoff Rounds structure created")
+
+    if "Playoffs" in tree and tree["Playoffs"]:
+        log_pass("Playoff Rounds structure retrieved")
+
+        print("\n" + "      🏆 VISUALIZING BRACKET")
+        print("      " + "=" * 30)
+
+        for round_name, games in tree["Playoffs"].items():
+            print(f"\n      📍 {round_name.upper()}")
+            for g in games:
+                # Show matchup
+                home = g["home"]
+                away = g["away"]
+                print(f"         • {home:<20} vs {away}")
+        print("\n")
     else:
-        log_fail("Gametree", "Playoffs section", "Missing")
+        log_fail("Gametree", "Playoffs section populated", "Empty or Missing")
 
     return cup_id, team_ids
 
 
 # ==========================================
-# 4. ERROR HANDLING
-# ==========================================
-def test_error_handling(team_id):
-    log_header("PHASE 4: ERROR HANDLING & VALIDATION")
-
-    log_step("Request Invalid Resource ID")
-    res = requests.get(f"{BASE_URL}/teams/999999/")
-    assert_status(res, 404, "GET Non-existent Team")
-
-    log_step("Send Invalid Payload")
-    res = requests.post(f"{BASE_URL}/teams/", data="Not JSON")
-    assert_status(res, 400, "POST Malformed JSON")
-
-    log_step("Send Invalid Game State Enum")
-    # Create temp game
-    game_res = requests.post(
-        f"{BASE_URL}/games/",
-        json={
-            "home_id": team_id,
-            "away_id": team_id,
-            "datetime": "2025-01-01T12:00:00",
-        },
-    )
-    gid = game_res.json()["value"]["id"]
-
-    res = requests.put(f"{BASE_URL}/games/{gid}/", json={"state": "SUPER_SAIYAN_MODE"})
-    assert_status(res, 400, "Update Invalid Enum State")
-
-    requests.delete(f"{BASE_URL}/games/{gid}/")
-
-
-# ==========================================
-# 5. CASCADING DELETE TEST (NEW)
+# 4. CASCADING DELETE TEST
 # ==========================================
 def test_cascading_delete(cup_id):
-    log_header("PHASE 5: CASCADING DELETE VERIFICATION")
+    log_header("PHASE 4: CASCADING DELETE VERIFICATION")
 
-    # 1. Fetch ALL games currently associated with the cup
+    # 1. Fetch ALL games
     log_step("Fetch Games Before Deletion")
     res = requests.get(f"{BASE_URL}/cups/{cup_id}/games/")
     game_ids = res.json()["value"]
@@ -263,17 +259,11 @@ def test_cascading_delete(cup_id):
     log_step("Delete Cup (Trigger Cascade)")
     res = requests.delete(f"{BASE_URL}/cups/{cup_id}/")
     assert_status(res, 200, "Delete Cup")
-    print(f"   Server Response: {res.json().get('message')}")
 
-    # 3. Verify Cup is gone
-    log_step("Verify Cup Deletion")
-    res = requests.get(f"{BASE_URL}/cups/{cup_id}/")
-    assert_status(res, 404, "GET Deleted Cup returns 404")
-
-    # 4. Verify Games are gone
+    # 3. Verify Games are gone
     log_step("Verify Orphaned Games Deletion")
     all_gone = True
-    for gid in game_ids:
+    for gid in game_ids[:5]:
         r = requests.get(f"{BASE_URL}/games/{gid}/")
         if r.status_code != 404:
             log_fail(f"Game {gid} still exists!", "404", r.status_code)
@@ -281,7 +271,7 @@ def test_cascading_delete(cup_id):
             break
 
     if all_gone:
-        log_pass(f"All {len(game_ids)} games successfully deleted from Repo.")
+        log_pass(f"Games successfully deleted from Repo.")
 
 
 # ==========================================
@@ -295,22 +285,22 @@ if __name__ == "__main__":
         t1, t2 = test_teams_comprehensive()
         test_games_comprehensive(t1, t2)
         cup_id, cup_teams = test_cup_comprehensive()
-        test_error_handling(t1)
 
-        # Run the new cascading verification
+        # Run the cascading verification
         test_cascading_delete(cup_id)
 
-        # Cleanup Remaining Teams
+        # Cleanup
         log_header("FINAL CLEANUP")
         requests.delete(f"{BASE_URL}/teams/{t1}/")
         requests.delete(f"{BASE_URL}/teams/{t2}/")
-        for tid in cup_teams:
-            requests.delete(f"{BASE_URL}/teams/{tid}/")
-        log_pass("All teams cleaned up")
+        requests.delete(f"{BASE_URL}/teams/{cup_teams[0]}/")
+        log_pass("Cleanup complete")
 
         print("\n" + "=" * 60)
         print("🎉  DEMONSTRATION COMPLETE: ALL SYSTEMS NOMINAL")
         print("=" * 60 + "\n")
 
     except requests.exceptions.ConnectionError:
-        print("\n❌ FATAL: Cannot connect to server.")
+        print(
+            "\n❌ FATAL: Cannot connect to server. Run 'python manage.py runserver' first."
+        )

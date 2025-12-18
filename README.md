@@ -553,3 +553,40 @@ python scenarios.py
 - ✅ Round-robin scheduling: Balanced match distribution
 
 **Status:** ✅ Complete - All tests passing (66/66)
+
+---
+
+## Phase 3: REST API
+
+### Overview
+
+A RESTful Web API implemented using Django. It exposes the core functionality of the library via HTTP endpoints using JSON for data exchange.
+
+### Endpoints
+
+- **Teams**
+  - `POST /api/teams/` - Create a team
+  - `PUT /api/teams/<id>/` - Update team attributes
+  - `POST /api/teams/<id>/players/` - Add a player
+  - `DELETE /api/teams/<id>/players/<name>/` - Remove a player
+
+- **Games**
+  - `POST /api/games/` - Create a game
+  - `PUT /api/games/<id>/` - Update game state (start/end) or score
+  - `GET /api/games/<id>/` - Get game details
+
+- **Cups**
+  - `POST /api/cups/` - Create a tournament
+  - `GET /api/cups/<id>/games/` - Get all games in cup
+  - `GET /api/cups/<id>/standings/` - Get standings
+  - `POST /api/cups/<id>/playoffs/` - Generate playoffs (Group type)
+  - `GET /api/cups/<id>/gametree/` - Get bracket visualization
+  - `DELETE /api/cups/<id>/` - Delete cup and cascade delete games
+
+### Testing
+
+Run the provided test script to verify API functionality:
+
+```bash
+python3 test_api.py
+```

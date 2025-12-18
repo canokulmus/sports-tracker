@@ -18,7 +18,7 @@ REPO = Repo()
 
 
 def send_success(value=None, message=None):
-    """Formats a success response following the phase 3 spec."""
+    """Returns a standard JSON success response."""
     response = {"result": "success"}
     if value is not None:
         response["value"] = value
@@ -28,12 +28,12 @@ def send_success(value=None, message=None):
 
 
 def send_error(reason, status=400):
-    """Formats an error response following the phase 3 spec."""
+    """Returns a standard JSON error response."""
     return JsonResponse({"result": "error", "reason": reason}, status=status)
 
 
 def get_team_or_404(team_id):
-    """Helper to retrieve a team from REPO or raise ValueError."""
+    """Retrieves a Team from REPO or returns an error tuple."""
     try:
         instance = REPO.get(team_id)
         if not isinstance(instance, Team):
@@ -44,7 +44,7 @@ def get_team_or_404(team_id):
 
 
 def serialize_team(team_id, team):
-    """Converts a Team object into a dictionary."""
+    """Serializes a Team object to a dictionary."""
     data = {
         "id": team_id,
         "name": team.team_name,
@@ -57,7 +57,7 @@ def serialize_team(team_id, team):
 
 
 def get_game_or_404(game_id):
-    """Helper to retrieve a game from REPO or raise ValueError."""
+    """Retrieves a Game from REPO or returns an error tuple."""
     try:
         instance = REPO.get(game_id)
         if not isinstance(instance, Game):
@@ -68,7 +68,7 @@ def get_game_or_404(game_id):
 
 
 def serialize_game(game_id, game):
-    """Converts a Game object into a dictionary."""
+    """Serializes a Game object to a dictionary."""
     return {
         "id": game_id,
         "home": game.home().team_name,
@@ -84,14 +84,14 @@ def serialize_game(game_id, game):
         if game.away()
         else None,
         "datetime": str(game.datetime),
-        "state": game.state.name,  # Enum to string
+        "state": game.state.name,
         "score": {"home": game.home_score, "away": game.away_score},
         "group": game.group,
     }
 
 
 def get_cup_or_404(cup_id):
-    """Helper to retrieve a cup from REPO or raise ValueError."""
+    """Retrieves a Cup from REPO or returns an error tuple."""
     try:
         instance = REPO.get(cup_id)
         if not isinstance(instance, Cup):
@@ -102,7 +102,7 @@ def get_cup_or_404(cup_id):
 
 
 def serialize_cup(cup_id, cup):
-    """Converts a Cup object into a dictionary."""
+    """Serializes a Cup object to a dictionary."""
     return {
         "id": cup_id,
         "type": cup.cup_type,
@@ -120,8 +120,8 @@ def serialize_cup(cup_id, cup):
 @csrf_exempt
 def team_collection(request):
     """
-    GET: Retrieve list of all teams.
-    POST: Create a new team.
+    API endpoint for Team collection.
+    GET: List all teams. POST: Create a new team.
     """
     if request.method == "GET":
         teams_list = []
@@ -142,7 +142,6 @@ def team_collection(request):
             body = json.loads(request.body)
             name = body.get("name")
 
-            # create() raises ValueError if type/name missing
             new_id = REPO.create(type="team", name=name)
 
             # Retrieve the created object to return it
@@ -161,14 +160,9 @@ def team_collection(request):
 @csrf_exempt
 def team_detail(request, team_id):
     """
-    GET: Retrieve a specific team.
-    PUT: Update a team (name or generic attributes).
-    DELETE: Delete a team.
+    API endpoint for a specific Team.
+    GET: Retrieve details. PUT: Update attributes. DELETE: Remove team.
     """
-    # 1. Retrieve the team first (needed for GET, PUT) or check existence (DELETE)
-    # Note: For DELETE we technically just need the ID, but it's good practice to ensure it exists first
-    # or let repo.delete handle it.
-
     if request.method == "GET":
         team, error = get_team_or_404(team_id)
         if error:
@@ -186,11 +180,10 @@ def team_detail(request, team_id):
             # Update explicit team_name if provided
             if "name" in body:
                 team.team_name = body["name"]
-                del body["name"]  # Remove so we don't duplicate it in generic attrs
+                del body["name"]  # Prevent duplication in generic attrs
 
-            # Update generic attributes with remaining keys
+            # Update generic attributes
             for key, value in body.items():
-                # Team.__setitem__ handles generic attributes
                 team[key] = value
 
             return send_success(serialize_team(team_id, team))
@@ -202,7 +195,7 @@ def team_detail(request, team_id):
 
     elif request.method == "DELETE":
         try:
-            # Check if it's a team first
+            # Ensure existence before deletion
             team, error = get_team_or_404(team_id)
             if error:
                 return send_error(error, status=404)
@@ -219,7 +212,8 @@ def team_detail(request, team_id):
 @csrf_exempt
 def player_collection(request, team_id):
     """
-    POST: Add a player to the team.
+    API endpoint for Player collection within a Team.
+    POST: Add a player.
     """
     if request.method == "POST":
         team, error = get_team_or_404(team_id)
@@ -252,7 +246,8 @@ def player_collection(request, team_id):
 @csrf_exempt
 def player_detail(request, team_id, player_name):
     """
-    DELETE: Remove a player from the team.
+    API endpoint for a specific Player.
+    DELETE: Remove a player.
     """
     if request.method == "DELETE":
         team, error = get_team_or_404(team_id)
@@ -278,8 +273,8 @@ def player_detail(request, team_id, player_name):
 @csrf_exempt
 def game_collection(request):
     """
-    GET: Retrieve list of all games.
-    POST: Create a new game.
+    API endpoint for Game collection.
+    GET: List all games. POST: Create a new game.
     """
     if request.method == "GET":
         games_list = []
@@ -303,20 +298,18 @@ def game_collection(request):
             dt_str = body.get("datetime")
             group = body.get("group")  # Optional
 
-            # Validate required fields
             if not home_id or not away_id or not dt_str:
                 return send_error(
                     "Fields 'home_id', 'away_id', and 'datetime' are required."
                 )
 
-            # Validate Datetime
             dt_obj = parse_datetime(dt_str)
             if dt_obj is None:
                 return send_error(
                     "Invalid datetime format. Use ISO 8601 (e.g., '2023-10-27T14:30:00')."
                 )
 
-            # Retrieve Team objects
+            # Fetch related Team objects
             home_team, err1 = get_team_or_404(home_id)
             away_team, err2 = get_team_or_404(away_id)
 
@@ -325,7 +318,6 @@ def game_collection(request):
             if err2:
                 return send_error(f"Away Team Error: {err2}", status=404)
 
-            # Create Game
             new_id = REPO.create(
                 type="game",
                 home=home_team,
@@ -349,11 +341,9 @@ def game_collection(request):
 @csrf_exempt
 def game_detail(request, game_id):
     """
-    GET: Retrieve a specific game.
-    PUT: Update a game (state, scores, datetime).
-    DELETE: Delete a game.
+    API endpoint for a specific Game.
+    GET: Retrieve details. PUT: Update state/score/datetime. DELETE: Remove game.
     """
-    # Check existence for all operations
     game, error = get_game_or_404(game_id)
     if error:
         return send_error(error, status=404)
@@ -365,23 +355,21 @@ def game_detail(request, game_id):
         try:
             body = json.loads(request.body)
 
-            # Update Datetime
             if "datetime" in body:
                 dt_obj = parse_datetime(body["datetime"])
                 if dt_obj:
                     game.datetime = dt_obj
 
-            # Update State (Expects string like "RUNNING", "ENDED")
+            # Update State
             if "state" in body:
                 try:
-                    # Convert string to GameState Enum
                     game.state = GameState[body["state"].upper()]
                 except KeyError:
                     return send_error(
                         f"Invalid state. Valid options: {[s.name for s in GameState]}"
                     )
 
-            # Update Scores manually (since this is a CRUD update, we override logic)
+            # Update Scores (direct override for CRUD)
             if "home_score" in body:
                 game.home_score = int(body["home_score"])
             if "away_score" in body:
@@ -411,8 +399,8 @@ def game_detail(request, game_id):
 @csrf_exempt
 def cup_collection(request):
     """
-    GET: Retrieve list of all cups.
-    POST: Create a new cup.
+    API endpoint for Cup collection.
+    GET: List all cups. POST: Create a new cup.
     """
     if request.method == "GET":
         cups_list = []
@@ -434,7 +422,6 @@ def cup_collection(request):
             cup_type = body.get("cup_type")
             team_ids = body.get("team_ids")
 
-            # Optional parameters for GROUP type
             num_groups = body.get("num_groups", 4)
             playoff_teams = body.get("playoff_teams", 8)
 
@@ -443,7 +430,7 @@ def cup_collection(request):
                     "Fields 'cup_type' and 'team_ids' (list of ints) are required."
                 )
 
-            # Validate Team IDs and fetch objects
+            # Validate Team IDs
             teams_instances = []
             for tid in team_ids:
                 team_obj, err = get_team_or_404(tid)
@@ -451,14 +438,12 @@ def cup_collection(request):
                     return send_error(f"Invalid Team ID {tid}: {err}", status=404)
                 teams_instances.append(team_obj)
 
-            # Validate Cup Type
             if not hasattr(CupType, cup_type):
                 return send_error(
                     f"Invalid cup_type. Options: {[a for a in dir(CupType) if not a.startswith('__')]}"
                 )
 
-            # Create Cup
-            # Note: We pass 'repo=REPO' so the cup can create games in the global repo
+            # Create Cup (pass repo for internal game creation)
             new_id = REPO.create(
                 type="cup",
                 teams=teams_instances,
@@ -484,10 +469,9 @@ def cup_collection(request):
 @csrf_exempt
 def cup_detail(request, cup_id):
     """
-    GET: Retrieve a specific cup.
-    DELETE: Delete a cup AND all its associated games.
+    API endpoint for a specific Cup.
+    GET: Retrieve details. DELETE: Remove cup and associated games.
     """
-    # 1. We must get the cup object first to know which games to delete
     cup, error = get_cup_or_404(cup_id)
     if error:
         return send_error(error, status=404)
@@ -497,28 +481,19 @@ def cup_detail(request, cup_id):
 
     elif request.method == "DELETE":
         try:
-            # --- START CASCADING DELETE LOGIC ---
-
-            # 1. Collect all Game IDs associated with this cup
-            # We use a list comprehension to get IDs safely
+            # Cascading delete: Remove associated games first
             game_ids_to_delete = [g.id() for g in cup.games]
-
             deleted_games_count = 0
 
-            # 2. Iterate and delete each game from the Repository
             for gid in game_ids_to_delete:
                 try:
                     REPO.delete(gid)
                     deleted_games_count += 1
                 except ValueError:
-                    # If a game was already deleted manually via /api/games/X/,
-                    # REPO.delete() will raise ValueError. We can safely ignore this.
+                    # Game might have been deleted manually
                     pass
 
-            # 3. Finally, delete the Cup itself
             REPO.delete(cup_id)
-
-            # --- END CASCADING DELETE LOGIC ---
 
             return send_success(
                 message=f"Cup {cup_id} and {deleted_games_count} associated games deleted successfully."
@@ -534,7 +509,7 @@ def cup_detail(request, cup_id):
 @csrf_exempt
 def cup_standings(request, cup_id):
     """
-    GET: Retrieve standings for a cup.
+    API endpoint for Cup standings (GET).
     """
     if request.method == "GET":
         cup, error = get_cup_or_404(cup_id)
@@ -549,7 +524,7 @@ def cup_standings(request, cup_id):
 @csrf_exempt
 def cup_gametree(request, cup_id):
     """
-    GET: Retrieve game tree (bracket) for ELIMINATION or GROUP cups.
+    API endpoint for Cup game tree/bracket (GET).
     """
     if request.method == "GET":
         cup, error = get_cup_or_404(cup_id)
@@ -568,8 +543,7 @@ def cup_gametree(request, cup_id):
 @csrf_exempt
 def cup_games(request, cup_id):
     """
-    GET: Retrieve list of Game IDs associated with this cup.
-    Useful for clients to know which games to play/watch.
+    API endpoint for retrieving Game IDs associated with a Cup (GET).
     """
     if request.method == "GET":
         cup, error = get_cup_or_404(cup_id)
@@ -586,7 +560,7 @@ def cup_games(request, cup_id):
 @csrf_exempt
 def cup_playoffs(request, cup_id):
     """
-    POST: Generate playoffs for a GROUP cup.
+    API endpoint to generate playoffs for a GROUP cup (POST).
     """
     if request.method == "POST":
         cup, error = get_cup_or_404(cup_id)
