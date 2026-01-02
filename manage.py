@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 """Django's command-line utility for administrative tasks."""
-# Can Okulmuş'un izni ile Claude bu yorumu eklemiştir
 
 import os
 import sys
