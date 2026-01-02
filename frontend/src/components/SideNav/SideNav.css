@@ -10,20 +10,57 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Logo */
+.sidebar.collapsed {
+  width: 80px;
+  padding: 20px 12px;
+}
+
 .logo {
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
   display: flex;
   align-items: center;
   gap: 10px;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
-/* Navigation Menu */
+.logo span {
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.sidebar.collapsed .logo span {
+  opacity: 0;
+  width: 0;
+}
+
+.toggle-btn {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 1.5rem;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+  background-color: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
 .nav-menu {
   list-style: none;
 }
@@ -41,6 +78,23 @@
   text-decoration: none;
   border-radius: 8px;
   transition: all 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.sidebar.collapsed .nav-link {
+  justify-content: center;
+  padding: 12px;
+}
+
+.nav-link span {
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.sidebar.collapsed .nav-link span {
+  opacity: 0;
+  width: 0;
 }
 
 .nav-link:hover {
@@ -53,9 +107,46 @@
   color: white;
 }
 
-/* Status Indicator */
+.status-wrapper {
+  margin-top: auto;
+  padding-top: 20px;
+}
+
+.status-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  transition: all 0.2s;
+}
+
+.status-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+
+.sidebar:not(.collapsed) .status-content {
+  justify-content: flex-start;
+}
+
+.status-text {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.sidebar.collapsed .status-text {
+  opacity: 0;
+  width: 0;
+}
+
 .status-indicator {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  flex-shrink: 0;
 }
 
 @keyframes pulse {

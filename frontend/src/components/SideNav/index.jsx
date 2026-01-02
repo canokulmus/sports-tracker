@@ -1,10 +1,19 @@
 // src/components/SideNav/index.jsx
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Trophy, Users, Gamepad2, Award, Radio } from 'lucide-react'
+import { Trophy, Users, Gamepad2, Award, Radio, ChevronLeft, ChevronRight } from 'lucide-react'
 import { colors } from '../../styles/colors'
 import './SideNav.css'
 
-function SideNav() {
+function SideNav({ onToggle }) {
+  const [isCollapsed, setIsCollapsed] = useState(false)
+
+  const handleToggle = () => {
+    const newState = !isCollapsed
+    setIsCollapsed(newState)
+    onToggle?.(newState)
+  }
+
   const navItems = [
     { to: '/live', icon: Radio, label: 'Canlı Skorlar' },
     { to: '/teams', icon: Users, label: 'Takımlar' },
@@ -13,14 +22,20 @@ function SideNav() {
   ]
 
   return (
-    <aside className="sidebar">
-      {/* Logo */}
+    <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
       <div className="logo">
         <Trophy size={28} />
-        <span>Sports Tracker</span>
+        {!isCollapsed && <span>Sports Tracker</span>}
       </div>
 
-      {/* Navigation Menu */}
+      <button
+        className="toggle-btn"
+        onClick={handleToggle}
+        title={isCollapsed ? 'Genişlet' : 'Daralt'}
+      >
+        {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+      </button>
+
       <nav>
         <ul className="nav-menu">
           {navItems.map((item) => (
@@ -30,19 +45,19 @@ function SideNav() {
                 className={({ isActive }) =>
                   `nav-link ${isActive ? 'active' : ''}`
                 }
+                title={isCollapsed ? item.label : ''}
               >
                 <item.icon size={20} />
-                <span>{item.label}</span>
+                {!isCollapsed && <span>{item.label}</span>}
               </NavLink>
             </li>
           ))}
         </ul>
       </nav>
 
-      {/* Connection Status - Backend bağlanınca aktif olacak */}
-      <div style={{ marginTop: 'auto', paddingTop: '20px' }}>
-        <div className="card" style={{ padding: '12px' }}>
-          <div className="flex items-center gap-2">
+      <div className="status-wrapper">
+        <div className="status-card">
+          <div className="status-content">
             <div
               className="status-indicator"
               style={{
@@ -52,9 +67,9 @@ function SideNav() {
                 backgroundColor: colors.connection.mock,
               }}
             />
-            <span className="text-muted" style={{ fontSize: '0.75rem' }}>
-              Mock Mode
-            </span>
+            {!isCollapsed && (
+              <span className="status-text">Mock Mode</span>
+            )}
           </div>
         </div>
       </div>
