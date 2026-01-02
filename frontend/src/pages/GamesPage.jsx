@@ -2,6 +2,7 @@ import { Plus } from 'lucide-react'
 import { gameApi, teamApi } from '../services/api'
 import { GameCard } from '../components/Game'
 import { useMockData, useToggle, useFormState } from '../hooks'
+import { Loader } from '../components/Loader'
 
 function GamesPage() {
   const { value: showForm, toggle: toggleForm } = useToggle(false)
@@ -86,7 +87,7 @@ function GamesPage() {
   }
 
   if (loading) {
-    return <div className="text-center text-muted">Yükleniyor...</div>
+    return <Loader text="Maçlar yükleniyor..." />
   }
 
   return (

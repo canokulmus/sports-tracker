@@ -1,0 +1,99 @@
+.loader-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  background: var(--bg-primary);
+  z-index: 9999;
+}
+
+.football-loader {
+  position: relative;
+  width: 100px;
+  height: 100px;
+}
+
+.football-svg {
+  width: 100%;
+  height: 100%;
+  animation: bounce 1s ease-in-out infinite, rotate 2s linear infinite;
+  filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.3));
+}
+
+.shadow {
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70px;
+  height: 12px;
+  background: radial-gradient(ellipse, rgba(0, 0, 0, 0.3), transparent);
+  border-radius: 50%;
+  animation: shadowPulse 1s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  50% {
+    transform: translateY(-40px) scale(1.05, 0.95);
+  }
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shadowPulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: translateX(-50%) scale(0.7);
+  }
+}
+
+.loader-text {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  animation: fadeInOut 2s ease-in-out infinite;
+  font-weight: 500;
+}
+
+@keyframes fadeInOut {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.loader-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.loader-mini .football-loader {
+  width: 28px;
+  height: 28px;
+}
+
+.loader-mini .shadow {
+  display: none;
+}

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Plus, Trash2, UserPlus, X, Users } from 'lucide-react'
 import { teamApi } from '../services/api'
 import { useMockData, useSelection, useFormState } from '../hooks'
+import { Loader } from '../components/Loader'
 
 function TeamsPage() {
   const [newTeamName, setNewTeamName] = useState('')
@@ -47,7 +48,7 @@ function TeamsPage() {
   }
 
   if (loading) {
-    return <div className="text-center text-muted">Yükleniyor...</div>
+    return <Loader text="Takımlar yükleniyor..." />
   }
 
   return (

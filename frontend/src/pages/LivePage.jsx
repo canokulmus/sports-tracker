@@ -2,6 +2,7 @@ import { Radio } from 'lucide-react'
 import { gameApi } from '../services/api'
 import { colors } from '../styles/colors'
 import { useMockData } from '../hooks'
+import { Loader } from '../components/Loader'
 
 function ScorersList({ scorers }) {
   if (!scorers || scorers.length === 0) return null
@@ -26,7 +27,7 @@ function LivePage() {
   const { data: games, loading } = useMockData(fetchLiveGames)
 
   if (loading) {
-    return <div className="text-center text-muted">Yükleniyor...</div>
+    return <Loader text="Canlı maçlar yükleniyor..." />
   }
 
   return (

@@ -3,6 +3,7 @@ import { Plus, Trophy, ChevronRight } from 'lucide-react'
 import { cupApi, teamApi } from '../services/api'
 import { colors } from '../styles/colors'
 import { useMockData, useToggle, useSelection, useMultiSelection } from '../hooks'
+import { Loader } from '../components/Loader'
 
 function TypeBadge({ type }) {
   const tournamentColors = {
@@ -65,7 +66,7 @@ function CupsPage() {
   }
 
   if (loading) {
-    return <div className="text-center text-muted">Yükleniyor...</div>
+    return <Loader text="Turnuvalar yükleniyor..." />
   }
 
   return (
