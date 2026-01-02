@@ -1,48 +1,38 @@
-// src/pages/GamesPage.jsx
-import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import { gameApi, teamApi } from '../services/api'
 import { GameCard } from '../components/Game'
+import { useMockData, useToggle, useFormState } from '../hooks'
 
 function GamesPage() {
-  const [games, setGames] = useState([])
-  const [teams, setTeams] = useState([])
-  const [gamePlayers, setGamePlayers] = useState({})
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [newGame, setNewGame] = useState({ homeId: '', awayId: '' })
+  const { value: showForm, toggle: toggleForm } = useToggle(false)
+  const { formData: newGame, updateField, resetForm } = useFormState({ homeId: '', awayId: '' })
 
-  useEffect(() => {
-    loadData()
-  }, [])
+  const loadGamesData = async () => {
+    const [gamesData, teamsData] = await Promise.all([
+      gameApi.getAll(),
+      teamApi.getAll(),
+    ])
 
-  const loadData = async () => {
-    setLoading(true)
-    try {
-      const [gamesData, teamsData] = await Promise.all([
-        gameApi.getAll(),
-        teamApi.getAll(),
-      ])
-      setGames(gamesData ?? [])
-      setTeams(teamsData ?? [])
-
-      // Her maç için oyuncuları yükle
-      const playersMap = {}
-      for (const game of gamesData ?? []) {
-        if (game?.id) {
-          const players = await gameApi.getPlayersForGame(game.id)
-          playersMap[game.id] = players ?? { home: [], away: [] }
-        }
+    const playersMap = {}
+    for (const game of gamesData ?? []) {
+      if (game?.id) {
+        const players = await gameApi.getPlayersForGame(game.id)
+        playersMap[game.id] = players ?? { home: [], away: [] }
       }
-      setGamePlayers(playersMap)
-    } catch (error) {
-      console.error('Veri yüklenirken hata:', error)
-    } finally {
-      setLoading(false)
+    }
+
+    return {
+      games: gamesData ?? [],
+      teams: teamsData ?? [],
+      gamePlayers: playersMap,
     }
   }
 
-  // Maç oluştur
+  const { data, loading, reload } = useMockData(loadGamesData)
+  const games = data?.games ?? []
+  const teams = data?.teams ?? []
+  const gamePlayers = data?.gamePlayers ?? {}
+
   const handleCreateGame = async (e) => {
     e.preventDefault()
     if (!newGame.homeId || !newGame.awayId) return
@@ -53,56 +43,33 @@ function GamesPage() {
 
     try {
       await gameApi.create(parseInt(newGame.homeId), parseInt(newGame.awayId))
-      setNewGame({ homeId: '', awayId: '' })
-      setShowForm(false)
-      loadData()
+      resetForm()
+      toggleForm()
+      reload()
     } catch (error) {
       console.error('Maç oluşturulurken hata:', error)
       alert('Maç oluşturulamadı')
     }
   }
 
-  // Maç kontrolları
-  const handleStart = async (id) => {
+  const handleGameAction = async (actionFn, id) => {
     try {
-      await gameApi.start(id)
-      loadData()
+      await actionFn(id)
+      reload()
     } catch (error) {
-      console.error('Maç başlatılırken hata:', error)
+      console.error('İşlem hatası:', error)
     }
   }
 
-  const handlePause = async (id) => {
-    try {
-      await gameApi.pause(id)
-      loadData()
-    } catch (error) {
-      console.error('Maç duraklatılırken hata:', error)
-    }
-  }
-
-  const handleResume = async (id) => {
-    try {
-      await gameApi.resume(id)
-      loadData()
-    } catch (error) {
-      console.error('Maç devam ettirilirken hata:', error)
-    }
-  }
-
-  const handleEnd = async (id) => {
-    try {
-      await gameApi.end(id)
-      loadData()
-    } catch (error) {
-      console.error('Maç bitirilirken hata:', error)
-    }
-  }
+  const handleStart = (id) => handleGameAction(gameApi.start, id)
+  const handlePause = (id) => handleGameAction(gameApi.pause, id)
+  const handleResume = (id) => handleGameAction(gameApi.resume, id)
+  const handleEnd = (id) => handleGameAction(gameApi.end, id)
 
   const handleScore = async (gameId, side, playerName) => {
     try {
       await gameApi.score(gameId, side, playerName, 1)
-      loadData()
+      reload()
     } catch (error) {
       console.error('Gol kaydedilirken hata:', error)
     }
@@ -112,7 +79,7 @@ function GamesPage() {
     if (!confirm('Maçı silmek istediğinize emin misiniz?')) return
     try {
       await gameApi.delete(id)
-      loadData()
+      reload()
     } catch (error) {
       console.error('Maç silinirken hata:', error)
     }
@@ -124,19 +91,17 @@ function GamesPage() {
 
   return (
     <div>
-      {/* Header */}
       <div className="page-header flex justify-between items-center">
         <div>
           <h1 className="page-title">Maçlar</h1>
           <p className="page-subtitle">Maçları yönet ve skorları takip et</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
+        <button className="btn btn-primary" onClick={toggleForm}>
           <Plus size={18} />
           Yeni Maç
         </button>
       </div>
 
-      {/* Yeni Maç Formu */}
       {showForm && (
         <div className="card mb-4">
           <h3 className="card-title mb-4">Yeni Maç Oluştur</h3>
@@ -147,7 +112,7 @@ function GamesPage() {
                 <select
                   className="form-select"
                   value={newGame.homeId}
-                  onChange={(e) => setNewGame({ ...newGame, homeId: e.target.value })}
+                  onChange={(e) => updateField('homeId', e.target.value)}
                 >
                   <option value="">Takım seçin...</option>
                   {teams.map((team) => (
@@ -163,7 +128,7 @@ function GamesPage() {
                 <select
                   className="form-select"
                   value={newGame.awayId}
-                  onChange={(e) => setNewGame({ ...newGame, awayId: e.target.value })}
+                  onChange={(e) => updateField('awayId', e.target.value)}
                 >
                   <option value="">Takım seçin...</option>
                   {teams.map((team) => (
@@ -184,7 +149,6 @@ function GamesPage() {
         </div>
       )}
 
-      {/* Maç Listesi */}
       {games.length === 0 ? (
         <div className="card">
           <div className="empty-state">
@@ -211,7 +175,6 @@ function GamesPage() {
         </div>
       )}
 
-      {/* CSS for dropdown */}
       <style>{`
         .goal-dropdown {
           position: relative;

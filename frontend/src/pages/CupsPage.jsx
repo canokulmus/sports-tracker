@@ -1,82 +1,67 @@
-// src/pages/CupsPage.jsx
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Plus, Trophy, ChevronRight } from 'lucide-react'
 import { cupApi, teamApi } from '../services/api'
 import { colors } from '../styles/colors'
+import { useMockData, useToggle, useSelection, useMultiSelection } from '../hooks'
+
+function TypeBadge({ type }) {
+  const tournamentColors = {
+    LEAGUE: colors.tournament.league,
+    ELIMINATION: colors.tournament.elimination,
+    GROUP: colors.tournament.group,
+  }
+  return (
+    <span
+      className="badge"
+      style={{
+        backgroundColor: tournamentColors[type] || colors.text.muted,
+        color: colors.quickColors.white,
+      }}
+    >
+      {type}
+    </span>
+  )
+}
 
 function CupsPage() {
-  const [cups, setCups] = useState([])
-  const [teams, setTeams] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [selectedCup, setSelectedCup] = useState(null)
+  const [newCupName, setNewCupName] = useState('')
+  const [cupType, setCupType] = useState('LEAGUE')
   const [standings, setStandings] = useState([])
-  const [showForm, setShowForm] = useState(false)
-  const [newCup, setNewCup] = useState({ name: '', type: 'LEAGUE', teamIds: [] })
 
-  useEffect(() => {
-    loadData()
-  }, [])
+  const { value: showForm, toggle: toggleForm } = useToggle(false)
+  const { selected: selectedCup, select: selectCup } = useSelection()
+  const { selected: selectedTeamIds, toggleItem: toggleTeam, isSelected } = useMultiSelection([])
 
-  const loadData = async () => {
-    setLoading(true)
+  const loadCupsData = async () => {
     const [cupsData, teamsData] = await Promise.all([
       cupApi.getAll(),
       teamApi.getAll(),
     ])
-    setCups(cupsData)
-    setTeams(teamsData)
-    setLoading(false)
+    return { cups: cupsData, teams: teamsData }
   }
 
-  // Turnuva seç ve standings yükle
+  const { data, loading, reload } = useMockData(loadCupsData)
+  const cups = data?.cups ?? []
+  const teams = data?.teams ?? []
+
   const handleSelectCup = async (cup) => {
-    setSelectedCup(cup)
+    selectCup(cup)
     const standingsData = await cupApi.getStandings(cup.id)
     setStandings(standingsData)
   }
 
-  // Turnuva oluştur
   const handleCreateCup = async (e) => {
     e.preventDefault()
-    if (!newCup.name || newCup.teamIds.length < 2) {
+    if (!newCupName || selectedTeamIds.length < 2) {
       alert('En az 2 takım seçmelisiniz!')
       return
     }
 
-    await cupApi.create(newCup.name, newCup.type, newCup.teamIds)
-    setNewCup({ name: '', type: 'LEAGUE', teamIds: [] })
-    setShowForm(false)
-    loadData()
-  }
-
-  // Takım seçimi toggle
-  const toggleTeamSelection = (teamId) => {
-    setNewCup((prev) => ({
-      ...prev,
-      teamIds: prev.teamIds.includes(teamId)
-        ? prev.teamIds.filter((id) => id !== teamId)
-        : [...prev.teamIds, teamId],
-    }))
-  }
-
-  // Turnuva türü badge
-  const TypeBadge = ({ type }) => {
-    const tournamentColors = {
-      LEAGUE: colors.tournament.league,
-      ELIMINATION: colors.tournament.elimination,
-      GROUP: colors.tournament.group,
-    }
-    return (
-      <span
-        className="badge"
-        style={{
-          backgroundColor: tournamentColors[type] || colors.text.muted,
-          color: colors.quickColors.white,
-        }}
-      >
-        {type}
-      </span>
-    )
+    await cupApi.create(newCupName, cupType, selectedTeamIds)
+    setNewCupName('')
+    setCupType('LEAGUE')
+    toggleForm()
+    reload()
   }
 
   if (loading) {
@@ -85,19 +70,17 @@ function CupsPage() {
 
   return (
     <div>
-      {/* Header */}
       <div className="page-header flex justify-between items-center">
         <div>
           <h1 className="page-title">Turnuvalar</h1>
           <p className="page-subtitle">Lig, kupa ve grup turnuvalarını yönet</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
+        <button className="btn btn-primary" onClick={toggleForm}>
           <Plus size={18} />
           Yeni Turnuva
         </button>
       </div>
 
-      {/* Yeni Turnuva Formu */}
       {showForm && (
         <div className="card mb-4">
           <h3 className="card-title mb-4">Yeni Turnuva Oluştur</h3>
@@ -109,16 +92,16 @@ function CupsPage() {
                   type="text"
                   className="form-input"
                   placeholder="örn: Süper Lig 2024-25"
-                  value={newCup.name}
-                  onChange={(e) => setNewCup({ ...newCup, name: e.target.value })}
+                  value={newCupName}
+                  onChange={(e) => setNewCupName(e.target.value)}
                 />
               </div>
               <div className="form-group">
                 <label className="form-label">Turnuva Türü</label>
                 <select
                   className="form-select"
-                  value={newCup.type}
-                  onChange={(e) => setNewCup({ ...newCup, type: e.target.value })}
+                  value={cupType}
+                  onChange={(e) => setCupType(e.target.value)}
                 >
                   <option value="LEAGUE">Lig (Round Robin)</option>
                   <option value="ELIMINATION">Eleme (Knockout)</option>
@@ -129,7 +112,7 @@ function CupsPage() {
 
             <div className="form-group">
               <label className="form-label">
-                Takımlar ({newCup.teamIds.length} seçili)
+                Takımlar ({selectedTeamIds.length} seçili)
               </label>
               <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
                 {teams.map((team) => (
@@ -137,11 +120,9 @@ function CupsPage() {
                     key={team.id}
                     type="button"
                     className={`btn btn-sm ${
-                      newCup.teamIds.includes(team.id)
-                        ? 'btn-primary'
-                        : 'btn-secondary'
+                      isSelected(team.id) ? 'btn-primary' : 'btn-secondary'
                     }`}
-                    onClick={() => toggleTeamSelection(team.id)}
+                    onClick={() => toggleTeam(team.id)}
                   >
                     {team.name}
                   </button>
@@ -157,7 +138,6 @@ function CupsPage() {
       )}
 
       <div className="grid grid-2">
-        {/* Sol: Turnuva Listesi */}
         <div>
           <div className="card">
             <h3 className="card-title mb-4">Turnuvalar ({cups.length})</h3>
@@ -176,7 +156,7 @@ function CupsPage() {
                     style={{
                       cursor: 'pointer',
                       borderColor:
-                        selectedCup?.id === cup.id ? '#3b82f6' : undefined,
+                        selectedCup?.id === cup.id ? colors.brand.primary : undefined,
                     }}
                     onClick={() => handleSelectCup(cup)}
                   >
@@ -202,7 +182,6 @@ function CupsPage() {
           </div>
         </div>
 
-        {/* Sağ: Puan Durumu */}
         <div>
           {selectedCup ? (
             <div className="card">

@@ -1,10 +1,8 @@
-// src/pages/LivePage.jsx
-import { useState, useEffect } from 'react'
 import { Radio } from 'lucide-react'
 import { gameApi } from '../services/api'
 import { colors } from '../styles/colors'
+import { useMockData } from '../hooks'
 
-// Gol Atanlar Listesi
 function ScorersList({ scorers }) {
   if (!scorers || scorers.length === 0) return null
 
@@ -20,26 +18,12 @@ function ScorersList({ scorers }) {
 }
 
 function LivePage() {
-  const [games, setGames] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    loadGames()
-
-    // Mock: Her 3 saniyede bir yenile (WebSocket gelince kaldırılacak)
-    const interval = setInterval(loadGames, 3000)
-    return () => clearInterval(interval)
-  }, [])
-
-  const loadGames = async () => {
+  const fetchLiveGames = async () => {
     const allGames = await gameApi.getAll()
-    // Sadece aktif maçları göster (RUNNING veya PAUSED)
-    const liveGames = allGames.filter(
-      (g) => g.state === 'RUNNING' || g.state === 'PAUSED'
-    )
-    setGames(liveGames)
-    setLoading(false)
+    return allGames.filter((g) => g.state === 'RUNNING' || g.state === 'PAUSED')
   }
+
+  const { data: games, loading } = useMockData(fetchLiveGames)
 
   if (loading) {
     return <div className="text-center text-muted">Yükleniyor...</div>
@@ -77,17 +61,17 @@ function LivePage() {
             }}
           />
           <div>
-            <strong>{games.length}</strong> canlı maç
+            <strong>{games?.length ?? 0}</strong> canlı maç
           </div>
           <div className="text-muted">•</div>
           <div className="text-muted text-sm">
-            WebSocket bağlantısı bekleniyor (Mock Mode)
+            WebSocket ile real-time güncellemeler yakında
           </div>
         </div>
       </div>
 
       {/* Canlı Maçlar */}
-      {games.length === 0 ? (
+      {!games || games.length === 0 ? (
         <div className="card">
           <div className="empty-state">
             <Radio size={64} style={{ opacity: 0.3 }} />

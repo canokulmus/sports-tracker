@@ -1,64 +1,49 @@
-// src/pages/TeamsPage.jsx
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Plus, Trash2, UserPlus, X, Users } from 'lucide-react'
 import { teamApi } from '../services/api'
+import { useMockData, useSelection, useFormState } from '../hooks'
 
 function TeamsPage() {
-  const [teams, setTeams] = useState([])
-  const [loading, setLoading] = useState(true)
   const [newTeamName, setNewTeamName] = useState('')
-  const [selectedTeam, setSelectedTeam] = useState(null)
-  const [newPlayer, setNewPlayer] = useState({ name: '', no: '' })
+  const { selected: selectedTeam, select: selectTeam, clear: clearSelection } = useSelection()
+  const { formData: newPlayer, updateField, resetForm } = useFormState({ name: '', no: '' })
 
-  // Takımları yükle
-  useEffect(() => {
-    loadTeams()
-  }, [])
+  const { data: teams, loading, reload } = useMockData(() => teamApi.getAll())
 
-  const loadTeams = async () => {
-    setLoading(true)
-    const data = await teamApi.getAll()
-    setTeams(data)
-    setLoading(false)
-  }
-
-  // Yeni takım oluştur
   const handleCreateTeam = async (e) => {
     e.preventDefault()
     if (!newTeamName.trim()) return
 
     await teamApi.create(newTeamName)
     setNewTeamName('')
-    loadTeams()
+    reload()
   }
 
-  // Takım sil
   const handleDeleteTeam = async (id) => {
     if (!confirm('Takımı silmek istediğinize emin misiniz?')) return
     await teamApi.delete(id)
-    loadTeams()
+    reload()
   }
 
-  // Oyuncu ekle
   const handleAddPlayer = async (e) => {
     e.preventDefault()
     if (!newPlayer.name || !newPlayer.no || !selectedTeam) return
 
     await teamApi.addPlayer(selectedTeam.id, newPlayer.name, parseInt(newPlayer.no))
-    setNewPlayer({ name: '', no: '' })
-    loadTeams()
-    // Seçili takımı güncelle
+    resetForm()
+    reload()
+
     const updated = await teamApi.getById(selectedTeam.id)
-    setSelectedTeam(updated)
+    selectTeam(updated)
   }
 
-  // Oyuncu sil
   const handleRemovePlayer = async (playerName) => {
     if (!selectedTeam) return
     await teamApi.removePlayer(selectedTeam.id, playerName)
-    loadTeams()
+    reload()
+
     const updated = await teamApi.getById(selectedTeam.id)
-    setSelectedTeam(updated)
+    selectTeam(updated)
   }
 
   if (loading) {
@@ -67,16 +52,13 @@ function TeamsPage() {
 
   return (
     <div>
-      {/* Header */}
       <div className="page-header">
         <h1 className="page-title">Takımlar</h1>
         <p className="page-subtitle">Takımları yönet ve oyuncu ekle</p>
       </div>
 
       <div className="grid grid-2">
-        {/* Sol: Takım Listesi */}
         <div>
-          {/* Yeni Takım Formu */}
           <div className="card">
             <form onSubmit={handleCreateTeam} className="flex gap-2">
               <input
@@ -93,11 +75,10 @@ function TeamsPage() {
             </form>
           </div>
 
-          {/* Takım Listesi */}
           <div className="card">
-            <h3 className="card-title mb-4">Tüm Takımlar ({teams.length})</h3>
-            
-            {teams.length === 0 ? (
+            <h3 className="card-title mb-4">Tüm Takımlar ({teams?.length ?? 0})</h3>
+
+            {!teams || teams.length === 0 ? (
               <div className="empty-state">
                 <p>Henüz takım yok</p>
               </div>
@@ -113,9 +94,9 @@ function TeamsPage() {
                 </thead>
                 <tbody>
                   {teams.map((team) => (
-                    <tr 
+                    <tr
                       key={team.id}
-                      onClick={() => setSelectedTeam(team)}
+                      onClick={() => selectTeam(team)}
                       style={{ cursor: 'pointer' }}
                     >
                       <td>{team.id}</td>
@@ -142,7 +123,6 @@ function TeamsPage() {
           </div>
         </div>
 
-        {/* Sağ: Takım Detayı */}
         <div>
           {selectedTeam ? (
             <div className="card">
@@ -150,13 +130,12 @@ function TeamsPage() {
                 <h3 className="card-title">{selectedTeam.name}</h3>
                 <button
                   className="btn btn-secondary btn-sm"
-                  onClick={() => setSelectedTeam(null)}
+                  onClick={clearSelection}
                 >
                   <X size={14} />
                 </button>
               </div>
 
-              {/* Oyuncu Ekle */}
               <form onSubmit={handleAddPlayer} className="mb-4">
                 <div className="form-row">
                   <div className="form-group">
@@ -165,9 +144,7 @@ function TeamsPage() {
                       className="form-input"
                       placeholder="Oyuncu adı"
                       value={newPlayer.name}
-                      onChange={(e) =>
-                        setNewPlayer({ ...newPlayer, name: e.target.value })
-                      }
+                      onChange={(e) => updateField('name', e.target.value)}
                     />
                   </div>
                   <div className="form-group">
@@ -176,9 +153,7 @@ function TeamsPage() {
                       className="form-input"
                       placeholder="Forma No"
                       value={newPlayer.no}
-                      onChange={(e) =>
-                        setNewPlayer({ ...newPlayer, no: e.target.value })
-                      }
+                      onChange={(e) => updateField('no', e.target.value)}
                     />
                   </div>
                   <button type="submit" className="btn btn-success">
@@ -188,7 +163,6 @@ function TeamsPage() {
                 </div>
               </form>
 
-              {/* Oyuncu Listesi */}
               <h4 className="text-muted mb-4">Kadro</h4>
               {Object.keys(selectedTeam.players).length === 0 ? (
                 <p className="text-muted">Henüz oyuncu yok</p>
