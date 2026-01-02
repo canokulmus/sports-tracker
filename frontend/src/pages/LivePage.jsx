@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Radio } from 'lucide-react'
 import { gameApi } from '../services/api'
+import { colors } from '../styles/colors'
 
 // Gol Atanlar Listesi
 function ScorersList({ scorers }) {
@@ -61,8 +62,8 @@ function LivePage() {
       <div
         className="card mb-4"
         style={{
-          background: 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)',
-          borderColor: '#3b82f6',
+          background: colors.gradients.card,
+          borderColor: colors.brand.primary,
         }}
       >
         <div className="flex items-center gap-4">
@@ -71,7 +72,7 @@ function LivePage() {
               width: 12,
               height: 12,
               borderRadius: '50%',
-              backgroundColor: '#ef4444',
+              backgroundColor: colors.state.danger,
               animation: 'pulse 2s infinite',
             }}
           />
@@ -103,7 +104,7 @@ function LivePage() {
               key={game.id}
               className="game-card live"
               style={{
-                background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+                background: colors.gradients.dark,
               }}
             >
               {/* Live Badge */}
@@ -115,7 +116,9 @@ function LivePage() {
                       height: 8,
                       borderRadius: '50%',
                       backgroundColor:
-                        game.state === 'RUNNING' ? '#22c55e' : '#f59e0b',
+                        game.state === 'RUNNING'
+                          ? colors.gameStatus.live
+                          : colors.gameStatus.paused,
                     }}
                   />
                   <span
@@ -158,8 +161,8 @@ function LivePage() {
                   style={{
                     fontSize: '3rem',
                     fontWeight: 800,
-                    color: '#3b82f6',
-                    textShadow: '0 0 20px rgba(59, 130, 246, 0.5)',
+                    color: colors.brand.primary,
+                    textShadow: `0 0 20px ${colors.brand.primary}80`,
                   }}
                 >
                   {game.score.home} - {game.score.away}

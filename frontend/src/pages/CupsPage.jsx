@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, Trophy, ChevronRight } from 'lucide-react'
 import { cupApi, teamApi } from '../services/api'
+import { colors } from '../styles/colors'
 
 function CupsPage() {
   const [cups, setCups] = useState([])
@@ -60,15 +61,18 @@ function CupsPage() {
 
   // Turnuva türü badge
   const TypeBadge = ({ type }) => {
-    const colors = {
-      LEAGUE: '#3b82f6',
-      ELIMINATION: '#ef4444',
-      GROUP: '#22c55e',
+    const tournamentColors = {
+      LEAGUE: colors.tournament.league,
+      ELIMINATION: colors.tournament.elimination,
+      GROUP: colors.tournament.group,
     }
     return (
       <span
         className="badge"
-        style={{ backgroundColor: colors[type] || '#666', color: 'white' }}
+        style={{
+          backgroundColor: tournamentColors[type] || colors.text.muted,
+          color: colors.quickColors.white,
+        }}
       >
         {type}
       </span>

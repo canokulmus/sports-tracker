@@ -3,6 +3,7 @@ import { Play, Pause, Square, Trash2 } from 'lucide-react'
 import StatusBadge from './StatusBadge'
 import ScorersList from './ScorersList'
 import GoalDropdown from './GoalDropdown'
+import { colors } from '../../styles/colors'
 
 function GameCard({
   game,
@@ -72,8 +73,8 @@ function GameCard({
     variant === 'compact' ? 'game-card-compact' : '',
   ].filter(Boolean).join(' ')
 
-  const cardStyle = variant === 'live' 
-    ? { background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)' }
+  const cardStyle = variant === 'live'
+    ? { background: colors.gradients.dark }
     : {}
 
   return (

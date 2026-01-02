@@ -1,6 +1,7 @@
 // src/components/SideNav/index.jsx
 import { NavLink } from 'react-router-dom'
 import { Trophy, Users, Gamepad2, Award, Radio } from 'lucide-react'
+import { colors } from '../../styles/colors'
 import './SideNav.css'
 
 function SideNav() {
@@ -48,7 +49,7 @@ function SideNav() {
                 width: 8,
                 height: 8,
                 borderRadius: '50%',
-                backgroundColor: '#f59e0b', // Sarı = Mock mode
+                backgroundColor: colors.connection.mock,
               }}
             />
             <span className="text-muted" style={{ fontSize: '0.75rem' }}>
