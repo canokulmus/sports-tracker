@@ -3,10 +3,12 @@ import { gameApi, teamApi } from '../services/api'
 import { GameCard } from '../components/Game'
 import { useMockData, useToggle, useFormState } from '../hooks'
 import { Loader } from '../components/Loader'
+import { useDialog } from '../context/DialogContext'
 
 function GamesPage() {
   const { value: showForm, toggle: toggleForm } = useToggle(false)
   const { formData: newGame, updateField, resetForm } = useFormState({ homeId: '', awayId: '' })
+  const { confirm, alert } = useDialog()
 
   const loadGamesData = async () => {
     const [gamesData, teamsData] = await Promise.all([
@@ -38,7 +40,10 @@ function GamesPage() {
     e.preventDefault()
     if (!newGame.homeId || !newGame.awayId) return
     if (newGame.homeId === newGame.awayId) {
-      alert('You cannot select the same team!')
+      alert({
+        title: 'Invalid Selection',
+        message: 'You cannot select the same team for both home and away!',
+      })
       return
     }
 
@@ -49,7 +54,10 @@ function GamesPage() {
       reload()
     } catch (error) {
       console.error('Error creating game:', error)
-      alert('Could not create game')
+      alert({
+        title: 'Error',
+        message: 'Could not create game. Please try again.',
+      })
     }
   }
 
@@ -77,13 +85,24 @@ function GamesPage() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this game?')) return
-    try {
-      await gameApi.delete(id)
-      reload()
-    } catch (error) {
-      console.error('Error deleting game:', error)
-    }
+    confirm({
+      title: 'Delete Game',
+      message: 'Are you sure you want to delete this game? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await gameApi.delete(id)
+          reload()
+        } catch (error) {
+          console.error('Error deleting game:', error)
+          alert({
+            title: 'Error',
+            message: 'Could not delete game. Please try again.',
+          })
+        }
+      },
+    })
   }
 
   if (loading) {

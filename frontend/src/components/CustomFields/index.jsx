@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Plus, Trash2, Tag } from 'lucide-react'
 import { colors } from '../../styles/colors'
+import { useDialog } from '../../context/DialogContext'
 
 function CustomFieldsManager({ fields = {}, onAddField, onDeleteField }) {
   const [newField, setNewField] = useState({ key: '', value: '' })
+  const { confirm } = useDialog()
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -11,6 +13,18 @@ function CustomFieldsManager({ fields = {}, onAddField, onDeleteField }) {
 
     onAddField(newField.key.trim(), newField.value.trim())
     setNewField({ key: '', value: '' })
+  }
+
+  const handleDeleteField = (key) => {
+    confirm({
+      title: 'Delete Custom Field',
+      message: `Are you sure you want to delete the field "${key}"?`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: () => {
+        onDeleteField(key)
+      },
+    })
   }
 
   const fieldEntries = Object.entries(fields).filter(
@@ -60,7 +74,7 @@ function CustomFieldsManager({ fields = {}, onAddField, onDeleteField }) {
               </div>
               <button
                 className="btn btn-danger btn-sm"
-                onClick={() => onDeleteField(key)}
+                onClick={() => handleDeleteField(key)}
                 style={styles.deleteBtn}
               >
                 <Trash2 size={14} />

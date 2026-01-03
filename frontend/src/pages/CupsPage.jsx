@@ -5,6 +5,7 @@ import { cupApi, teamApi } from '../services/api'
 import { colors } from '../styles/colors'
 import { useMockData, useToggle, useMultiSelection } from '../hooks'
 import { Loader } from '../components/Loader'
+import { useDialog } from '../context/DialogContext'
 
 function TypeBadge({ type }) {
   const tournamentColors = {
@@ -29,6 +30,7 @@ function CupsPage() {
   const navigate = useNavigate()
   const [newCupName, setNewCupName] = useState('')
   const [cupType, setCupType] = useState('LEAGUE')
+  const { alert } = useDialog()
 
   const { value: showForm, toggle: toggleForm } = useToggle(false)
   const { selected: selectedTeamIds, toggleItem: toggleTeam, isSelected } = useMultiSelection([])
@@ -52,7 +54,10 @@ function CupsPage() {
   const handleCreateCup = async (e) => {
     e.preventDefault()
     if (!newCupName || selectedTeamIds.length < 2) {
-      alert('You must select at least 2 teams!')
+      alert({
+        title: 'Invalid Tournament',
+        message: 'You must select at least 2 teams to create a tournament!',
+      })
       return
     }
 

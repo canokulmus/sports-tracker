@@ -4,11 +4,13 @@ import { teamApi } from '../services/api'
 import { useMockData, useSelection, useFormState } from '../hooks'
 import { Loader } from '../components/Loader'
 import CustomFieldsManager from '../components/CustomFields'
+import { useDialog } from '../context/DialogContext'
 
 function TeamsPage() {
   const [newTeamName, setNewTeamName] = useState('')
   const { selected: selectedTeam, select: selectTeam, clear: clearSelection } = useSelection()
   const { formData: newPlayer, updateField, resetForm } = useFormState({ name: '', no: '' })
+  const { confirm } = useDialog()
 
   const { data: teams, loading, reload } = useMockData(() => teamApi.getAll())
 
@@ -22,9 +24,16 @@ function TeamsPage() {
   }
 
   const handleDeleteTeam = async (id) => {
-    if (!confirm('Are you sure you want to delete this team?')) return
-    await teamApi.delete(id)
-    reload()
+    confirm({
+      title: 'Delete Team',
+      message: 'Are you sure you want to delete this team? This action cannot be undone.',
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        await teamApi.delete(id)
+        reload()
+      },
+    })
   }
 
   const handleAddPlayer = async (e) => {
@@ -40,12 +49,20 @@ function TeamsPage() {
   }
 
   const handleRemovePlayer = async (playerName) => {
-    if (!selectedTeam) return
-    await teamApi.removePlayer(selectedTeam.id, playerName)
-    reload()
+    confirm({
+      title: 'Remove Player',
+      message: `Are you sure you want to remove ${playerName} from the team?`,
+      confirmText: 'Remove',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        if (!selectedTeam) return
+        await teamApi.removePlayer(selectedTeam.id, playerName)
+        reload()
 
-    const updated = await teamApi.getById(selectedTeam.id)
-    selectTeam(updated)
+        const updated = await teamApi.getById(selectedTeam.id)
+        selectTeam(updated)
+      },
+    })
   }
 
   const handleAddCustomField = async (key, value) => {
