@@ -64,8 +64,10 @@ export const colors = {
     border: '#475569',       // Border rengi (slate-600)
     borderLight: '#64748b',  // Açık border (slate-500)
     borderDark: '#334155',   // Koyu border (slate-700)
+    borderSubtle: '#475569', // Subtle border (slate-600)
     divider: '#334155',      // Ayırıcı çizgi
     shadow: 'rgba(0, 0, 0, 0.3)', // Gölge
+    info: '#06b6d4',         // Info color (cyan-500)
   },
 
   // Gradients (Degradeler)

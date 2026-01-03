@@ -66,6 +66,26 @@ export const teamApi = {
     }
     throw new Error("Player not found");
   },
+
+  setCustomField: async (teamId, key, value) => {
+    await delay(200);
+    const team = teams.find((t) => t.id === teamId);
+    if (team) {
+      team[key] = value;
+      return team;
+    }
+    throw new Error("Team not found");
+  },
+
+  deleteCustomField: async (teamId, key) => {
+    await delay(200);
+    const team = teams.find((t) => t.id === teamId);
+    if (team && team[key] !== undefined) {
+      delete team[key];
+      return team;
+    }
+    throw new Error("Field not found");
+  },
 };
 
 // ==========================================

@@ -3,6 +3,7 @@ import { Plus, Trash2, UserPlus, X, Users } from 'lucide-react'
 import { teamApi } from '../services/api'
 import { useMockData, useSelection, useFormState } from '../hooks'
 import { Loader } from '../components/Loader'
+import CustomFieldsManager from '../components/CustomFields'
 
 function TeamsPage() {
   const [newTeamName, setNewTeamName] = useState('')
@@ -41,6 +42,24 @@ function TeamsPage() {
   const handleRemovePlayer = async (playerName) => {
     if (!selectedTeam) return
     await teamApi.removePlayer(selectedTeam.id, playerName)
+    reload()
+
+    const updated = await teamApi.getById(selectedTeam.id)
+    selectTeam(updated)
+  }
+
+  const handleAddCustomField = async (key, value) => {
+    if (!selectedTeam) return
+    await teamApi.setCustomField(selectedTeam.id, key, value)
+    reload()
+
+    const updated = await teamApi.getById(selectedTeam.id)
+    selectTeam(updated)
+  }
+
+  const handleDeleteCustomField = async (key) => {
+    if (!selectedTeam) return
+    await teamApi.deleteCustomField(selectedTeam.id, key)
     reload()
 
     const updated = await teamApi.getById(selectedTeam.id)
@@ -90,34 +109,53 @@ function TeamsPage() {
                     <th>ID</th>
                     <th>Takım Adı</th>
                     <th>Oyuncu</th>
+                    <th>Özel Alanlar</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {teams.map((team) => (
-                    <tr
-                      key={team.id}
-                      onClick={() => selectTeam(team)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <td>{team.id}</td>
-                      <td>
-                        <strong>{team.name}</strong>
-                      </td>
-                      <td>{Object.keys(team.players).length}</td>
-                      <td className="text-right">
-                        <button
-                          className="btn btn-danger btn-sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeleteTeam(team.id)
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {teams.map((team) => {
+                    const customFields = Object.entries(team).filter(
+                      ([key]) => !['id', 'name', 'players'].includes(key)
+                    )
+                    return (
+                      <tr
+                        key={team.id}
+                        onClick={() => selectTeam(team)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <td>{team.id}</td>
+                        <td>
+                          <strong>{team.name}</strong>
+                        </td>
+                        <td>{Object.keys(team.players).length}</td>
+                        <td>
+                          {customFields.length > 0 ? (
+                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                              {customFields.map(([key, value]) => (
+                                <span key={key} className="badge badge-secondary" style={{ fontSize: '11px' }}>
+                                  {key}: {String(value)}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span style={{ color: '#64748b', fontSize: '12px' }}>-</span>
+                          )}
+                        </td>
+                        <td className="text-right">
+                          <button
+                            className="btn btn-danger btn-sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteTeam(team.id)
+                            }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             )}
@@ -196,6 +234,12 @@ function TeamsPage() {
                   </tbody>
                 </table>
               )}
+
+              <CustomFieldsManager
+                fields={selectedTeam}
+                onAddField={handleAddCustomField}
+                onDeleteField={handleDeleteCustomField}
+              />
             </div>
           ) : (
             <div className="card">
