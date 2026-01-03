@@ -4,6 +4,7 @@ import StatusBadge from './StatusBadge'
 import ScorersList from './ScorersList'
 import GoalDropdown from './GoalDropdown'
 import { colors } from '../../styles/colors'
+import { useMediaQuery, mediaQueries } from '../../utils/responsive'
 
 function GameCard({
   game,
@@ -18,6 +19,8 @@ function GameCard({
   onDelete,
   variant = 'default',
 }) {
+  const isMobile = useMediaQuery(mediaQueries.mobile)
+
   if (!game) {
     return (
       <div style={styles.card}>
@@ -63,6 +66,28 @@ function GameCard({
     ...styles.card,
     ...(isLive && variant !== 'compact' ? styles.cardLive : {}),
     ...(variant === 'live' ? { background: colors.gradients.dark, boxShadow: `0 8px 32px ${colors.brand.primary}20` } : {}),
+    ...(isMobile ? styles.cardMobile : {}),
+  }
+
+  const scoreBoardStyle = {
+    ...styles.scoreBoard,
+    ...(isMobile ? styles.scoreBoardMobile : {}),
+  }
+
+  const teamNameStyle = {
+    ...styles.teamName,
+    ...(isMobile ? { fontSize: '16px' } : {}),
+  }
+
+  const scoreStyle = (isWinner) => ({
+    ...styles.score,
+    ...(isWinner && isEnded ? styles.scoreWinner : {}),
+    ...(isMobile ? { fontSize: '42px', minHeight: '42px' } : {}),
+  })
+
+  const actionsStyle = {
+    ...styles.actions,
+    ...(isMobile ? { flexDirection: 'column' } : {}),
   }
 
   const cardClasses = `game-card-hover ${isLive ? 'game-card-live' : ''}`
@@ -99,14 +124,11 @@ function GameCard({
       </div>
 
       {/* Teams & Score */}
-      <div style={styles.scoreBoard}>
+      <div style={scoreBoardStyle}>
         {/* Home Team */}
         <div style={styles.team}>
-          <div style={styles.teamName}>{homeName}</div>
-          <div style={{
-            ...styles.score,
-            ...(homeScore > awayScore && isEnded ? styles.scoreWinner : {}),
-          }}>
+          <div style={teamNameStyle}>{homeName}</div>
+          <div style={scoreStyle(homeScore > awayScore)}>
             {homeScore}
           </div>
           <ScorersList scorers={homeScorers} />
@@ -131,11 +153,8 @@ function GameCard({
 
         {/* Away Team */}
         <div style={styles.team}>
-          <div style={styles.teamName}>{awayName}</div>
-          <div style={{
-            ...styles.score,
-            ...(awayScore > homeScore && isEnded ? styles.scoreWinner : {}),
-          }}>
+          <div style={teamNameStyle}>{awayName}</div>
+          <div style={scoreStyle(awayScore > homeScore)}>
             {awayScore}
           </div>
           <ScorersList scorers={awayScorers} />
@@ -154,7 +173,7 @@ function GameCard({
 
       {/* Action Buttons */}
       {showControls && (
-        <div style={styles.actions}>
+        <div style={actionsStyle}>
           {isReady && onStart && (
             <button
               className="game-action-btn game-action-start"
@@ -274,6 +293,18 @@ function GameCard({
         .game-action-btn:active {
           transform: translateY(0);
         }
+
+        /* Responsive GameCard Styles */
+        @media (max-width: 480px) {
+          .game-card-hover {
+            padding: 16px !important;
+          }
+
+          .game-action-btn {
+            flex: 1;
+            width: 100%;
+          }
+        }
       `}</style>
     </div>
   )
@@ -383,6 +414,12 @@ const styles = {
     marginTop: '24px',
     paddingTop: '24px',
     borderTop: `1px solid ${colors.ui.borderDark}`,
+  },
+  cardMobile: {
+    padding: '16px',
+  },
+  scoreBoardMobile: {
+    gap: '16px',
   },
 }
 

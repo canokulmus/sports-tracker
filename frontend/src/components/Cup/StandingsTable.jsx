@@ -3,44 +3,46 @@ import { colors } from '../../styles/colors'
 
 function LeagueStandings({ standings }) {
   return (
-    <table className="table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Team</th>
-          <th>P</th>
-          <th>W</th>
-          <th>D</th>
-          <th>L</th>
-          <th>GF</th>
-          <th>GA</th>
-          <th>GD</th>
-          <th>Pts</th>
-        </tr>
-      </thead>
-      <tbody>
-        {standings.map((row, index) => (
-          <tr key={row.team}>
-            <td>
-              <strong>{index + 1}</strong>
-            </td>
-            <td>
-              <strong>{row.team}</strong>
-            </td>
-            <td>{row.played}</td>
-            <td className="text-success">{row.won}</td>
-            <td>{row.draw}</td>
-            <td className="text-danger">{row.lost}</td>
-            <td>{row.gf}</td>
-            <td>{row.ga}</td>
-            <td>{row.gf - row.ga}</td>
-            <td>
-              <strong>{row.points}</strong>
-            </td>
+    <div className="table-container">
+      <table className="table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Team</th>
+            <th>P</th>
+            <th>W</th>
+            <th>D</th>
+            <th>L</th>
+            <th>GF</th>
+            <th>GA</th>
+            <th>GD</th>
+            <th>Pts</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {standings.map((row, index) => (
+            <tr key={row.team}>
+              <td>
+                <strong>{index + 1}</strong>
+              </td>
+              <td>
+                <strong>{row.team}</strong>
+              </td>
+              <td>{row.played}</td>
+              <td className="text-success">{row.won}</td>
+              <td>{row.draw}</td>
+              <td className="text-danger">{row.lost}</td>
+              <td>{row.gf}</td>
+              <td>{row.ga}</td>
+              <td>{row.gf - row.ga}</td>
+              <td>
+                <strong>{row.points}</strong>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
@@ -52,38 +54,40 @@ function GroupStandings({ standings }) {
       {groupNames.map((groupName) => (
         <div key={groupName} style={styles.groupCard}>
           <h4 style={styles.groupTitle}>Group {groupName}</h4>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Team</th>
-                <th>P</th>
-                <th>W</th>
-                <th>D</th>
-                <th>L</th>
-                <th>Pts</th>
-              </tr>
-            </thead>
-            <tbody>
-              {standings[groupName].map((row, index) => (
-                <tr key={row.team}>
-                  <td>
-                    <strong>{index + 1}</strong>
-                  </td>
-                  <td>
-                    <strong>{row.team}</strong>
-                  </td>
-                  <td>{row.played}</td>
-                  <td className="text-success">{row.won}</td>
-                  <td>{row.draw}</td>
-                  <td className="text-danger">{row.lost}</td>
-                  <td>
-                    <strong>{row.points}</strong>
-                  </td>
+          <div className="table-container">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Team</th>
+                  <th>P</th>
+                  <th>W</th>
+                  <th>D</th>
+                  <th>L</th>
+                  <th>Pts</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {standings[groupName].map((row, index) => (
+                  <tr key={row.team}>
+                    <td>
+                      <strong>{index + 1}</strong>
+                    </td>
+                    <td>
+                      <strong>{row.team}</strong>
+                    </td>
+                    <td>{row.played}</td>
+                    <td className="text-success">{row.won}</td>
+                    <td>{row.draw}</td>
+                    <td className="text-danger">{row.lost}</td>
+                    <td>
+                      <strong>{row.points}</strong>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ))}
     </div>

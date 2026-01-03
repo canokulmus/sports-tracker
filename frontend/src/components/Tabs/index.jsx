@@ -2,29 +2,42 @@ import { colors } from '../../styles/colors'
 
 function Tabs({ tabs, activeTab, onTabChange }) {
   return (
-    <div style={styles.container}>
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          style={{
-            ...styles.tab,
-            ...(activeTab === tab.id ? styles.tabActive : {}),
-          }}
-          onClick={() => onTabChange(tab.id)}
-          type="button"
-        >
-          {tab.label}
-          {tab.count !== undefined && (
-            <span style={{
-              ...styles.count,
-              ...(activeTab === tab.id ? styles.countActive : {}),
-            }}>
-              {tab.count}
-            </span>
-          )}
-        </button>
-      ))}
-    </div>
+    <>
+      <div style={styles.container} className="tabs-scroll">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            style={{
+              ...styles.tab,
+              ...(activeTab === tab.id ? styles.tabActive : {}),
+            }}
+            onClick={() => onTabChange(tab.id)}
+            type="button"
+          >
+            {tab.label}
+            {tab.count !== undefined && (
+              <span style={{
+                ...styles.count,
+                ...(activeTab === tab.id ? styles.countActive : {}),
+              }}>
+                {tab.count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Hide scrollbar styling */}
+      <style>{`
+        .tabs-scroll {
+          scrollbar-width: none; /* Firefox */
+          -ms-overflow-style: none; /* IE and Edge */
+        }
+        .tabs-scroll::-webkit-scrollbar {
+          display: none; /* Chrome, Safari, Opera */
+        }
+      `}</style>
+    </>
   )
 }
 

@@ -1,9 +1,11 @@
-import { AlertTriangle, Info, CheckCircle } from 'lucide-react'
+import { AlertTriangle, Info, CheckCircle, X } from 'lucide-react'
 import { colors } from '../../styles/colors'
 import { useDialog } from '../../context/DialogContext'
+import { useMediaQuery, mediaQueries } from '../../utils/responsive'
 
 function Dialog() {
   const { dialog, hideDialog } = useDialog()
+  const isMobile = useMediaQuery(mediaQueries.mobile)
 
   if (!dialog) return null
 
@@ -14,6 +16,14 @@ function Dialog() {
       } else {
         dialog.onClose?.()
       }
+    }
+  }
+
+  const handleClose = () => {
+    if (dialog.type === 'confirm') {
+      dialog.onCancel?.()
+    } else {
+      dialog.onClose?.()
     }
   }
 
@@ -30,9 +40,26 @@ function Dialog() {
     }
   }
 
+  const dialogStyle = {
+    ...styles.dialog,
+    ...(isMobile ? styles.dialogMobile : {}),
+  }
+
   return (
     <div style={styles.backdrop} onClick={handleBackdropClick}>
-      <div style={styles.dialog}>
+      <div style={dialogStyle}>
+        {isMobile && (
+          <button
+            className="dialog-close-btn"
+            style={styles.closeBtn}
+            onClick={handleClose}
+            type="button"
+            aria-label="Close"
+          >
+            <X size={20} />
+          </button>
+        )}
+
         <div style={styles.iconContainer}>{getIcon()}</div>
 
         {dialog.title && <h3 style={styles.title}>{dialog.title}</h3>}
@@ -68,6 +95,17 @@ function Dialog() {
           )}
         </div>
       </div>
+
+      {/* Close button hover styles */}
+      {isMobile && (
+        <style>{`
+          .dialog-close-btn:hover {
+            background: ${colors.background.primary};
+            border-color: ${colors.ui.borderLight};
+            color: ${colors.text.primary};
+          }
+        `}</style>
+      )}
     </div>
   )
 }
@@ -94,6 +132,37 @@ const styles = {
     width: '100%',
     border: `1px solid ${colors.ui.border}`,
     boxShadow: `0 8px 32px ${colors.background.primary}80`,
+    position: 'relative',
+  },
+  dialogMobile: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    maxWidth: '100%',
+    borderRadius: 0,
+    padding: '24px',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+  },
+  closeBtn: {
+    position: 'absolute',
+    top: '16px',
+    right: '16px',
+    background: colors.background.tertiary,
+    border: `1px solid ${colors.ui.border}`,
+    borderRadius: '8px',
+    width: '36px',
+    height: '36px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    color: colors.text.secondary,
+    transition: 'all 0.2s ease',
+    zIndex: 1,
   },
   iconContainer: {
     display: 'flex',

@@ -70,7 +70,8 @@ function TeamsPage() {
                 <p>No teams yet</p>
               </div>
             ) : (
-              <table className="table">
+              <div className="table-container">
+                <table className="table">
                 <thead>
                   <tr>
                     <th>ID</th>
@@ -125,6 +126,7 @@ function TeamsPage() {
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>
@@ -173,33 +175,35 @@ function TeamsPage() {
               {Object.keys(selectedTeam.players).length === 0 ? (
                 <p className="text-muted">No players yet</p>
               ) : (
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>No</th>
-                      <th>Name</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(selectedTeam.players).map(([name, data]) => (
-                      <tr key={name}>
-                        <td>
-                          <span className="badge badge-primary">{data.no}</span>
-                        </td>
-                        <td>{name}</td>
-                        <td className="text-right">
-                          <button
-                            className="btn btn-danger btn-sm"
-                            onClick={() => removePlayer(name)}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </td>
+                <div className="table-container">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>No</th>
+                        <th>Name</th>
+                        <th></th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {Object.entries(selectedTeam.players).map(([name, data]) => (
+                        <tr key={name}>
+                          <td>
+                            <span className="badge badge-primary">{data.no}</span>
+                          </td>
+                          <td>{name}</td>
+                          <td className="text-right">
+                            <button
+                              className="btn btn-danger btn-sm"
+                              onClick={() => removePlayer(name)}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
 
               <CustomFieldsManager

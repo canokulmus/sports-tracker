@@ -1,18 +1,45 @@
 // src/components/SideNav/index.jsx
-import { useState } from 'react'
+import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Trophy, Users, Gamepad2, Award, Radio, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Trophy, Users, Gamepad2, Award, Radio, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { colors } from '../../styles/colors'
+import { useMediaQuery, mediaQueries } from '../../utils/responsive'
 import './SideNav.css'
 
-function SideNav({ onToggle }) {
+const SideNav = forwardRef(({ onToggle }, ref) => {
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const isMobile = useMediaQuery(mediaQueries.tablet)
+
+  // Auto-close mobile menu when screen becomes larger
+  useEffect(() => {
+    if (!isMobile) {
+      setIsMobileMenuOpen(false)
+    }
+  }, [isMobile])
 
   const handleToggle = () => {
-    const newState = !isCollapsed
-    setIsCollapsed(newState)
-    onToggle?.(newState)
+    if (isMobile) {
+      setIsMobileMenuOpen(!isMobileMenuOpen)
+    } else {
+      const newState = !isCollapsed
+      setIsCollapsed(newState)
+      onToggle?.(newState)
+    }
   }
+
+  const handleMobileMenuClose = () => {
+    setIsMobileMenuOpen(false)
+  }
+
+  // Expose toggle function to parent via ref
+  useImperativeHandle(ref, () => ({
+    toggleMobileMenu: () => {
+      if (isMobile) {
+        setIsMobileMenuOpen(!isMobileMenuOpen)
+      }
+    }
+  }))
 
   const navItems = [
     { to: '/live', icon: Radio, label: 'Live Scores' },
@@ -22,59 +49,83 @@ function SideNav({ onToggle }) {
   ]
 
   return (
-    <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
-      <div className="logo">
-        <Trophy size={28} />
-        {!isCollapsed && <span>Sports Tracker</span>}
-      </div>
+    <>
+      {/* Mobile backdrop */}
+      {isMobile && isMobileMenuOpen && (
+        <div className="sidebar-backdrop" onClick={handleMobileMenuClose} />
+      )}
 
-      <button
-        className="toggle-btn"
-        onClick={handleToggle}
-        title={isCollapsed ? 'Genişlet' : 'Daralt'}
-      >
-        {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-      </button>
+      <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${isMobile && isMobileMenuOpen ? 'mobile-open' : ''}`}>
+        {/* Mobile close button */}
+        {isMobile && isMobileMenuOpen && (
+          <button
+            className="mobile-close-btn"
+            onClick={handleMobileMenuClose}
+            aria-label="Close menu"
+          >
+            <X size={20} />
+          </button>
+        )}
 
-      <nav>
-        <ul className="nav-menu">
-          {navItems.map((item) => (
-            <li key={item.to} className="nav-item">
-              <NavLink
-                to={item.to}
-                className={({ isActive }) =>
-                  `nav-link ${isActive ? 'active' : ''}`
-                }
-                title={isCollapsed ? item.label : ''}
-              >
-                <item.icon size={20} />
-                {!isCollapsed && <span>{item.label}</span>}
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-      </nav>
+        <div className="logo">
+          <Trophy size={28} />
+          {!isCollapsed && <span>Sports Tracker</span>}
+        </div>
 
-      <div className="status-wrapper">
-        <div className="status-card">
-          <div className="status-content">
-            <div
-              className="status-indicator"
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                backgroundColor: colors.connection.mock,
-              }}
-            />
-            {!isCollapsed && (
-              <span className="status-text">Mock Mode</span>
-            )}
+        {/* Desktop collapse button */}
+        {!isMobile && (
+          <button
+            className="toggle-btn"
+            onClick={handleToggle}
+            title={isCollapsed ? 'Genişlet' : 'Daralt'}
+          >
+            {isCollapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
+          </button>
+        )}
+
+        <nav>
+          <ul className="nav-menu">
+            {navItems.map((item) => (
+              <li key={item.to} className="nav-item">
+                <NavLink
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `nav-link ${isActive ? 'active' : ''}`
+                  }
+                  title={isCollapsed && !isMobile ? item.label : ''}
+                  onClick={isMobile ? handleMobileMenuClose : undefined}
+                >
+                  <item.icon size={20} />
+                  {(!isCollapsed || isMobile) && <span>{item.label}</span>}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <div className="status-wrapper">
+          <div className="status-card">
+            <div className="status-content">
+              <div
+                className="status-indicator"
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  backgroundColor: colors.connection.mock,
+                }}
+              />
+              {(!isCollapsed || isMobile) && (
+                <span className="status-text">Mock Mode</span>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   )
-}
+})
+
+SideNav.displayName = 'SideNav'
 
 export default SideNav
