@@ -3,20 +3,7 @@ import { gameApi } from '../services/api'
 import { colors } from '../styles/colors'
 import { useMockData } from '../hooks'
 import { Loader } from '../components/Loader'
-
-function ScorersList({ scorers }) {
-  if (!scorers || scorers.length === 0) return null
-
-  return (
-    <div className="scorers-list">
-      {scorers.map((s, idx) => (
-        <span key={idx} className="scorer-item">
-          ⚽ {s.player} {s.minute}'
-        </span>
-      ))}
-    </div>
-  )
-}
+import GameCard from '../components/Game/GameCard'
 
 function LivePage() {
   const fetchLiveGames = async () => {
@@ -34,8 +21,8 @@ function LivePage() {
     <div>
       {/* Header */}
       <div className="page-header">
-        <div className="flex items-center gap-2">
-          <Radio size={28} className="text-danger" />
+        <div style={styles.titleContainer}>
+          <Radio size={32} style={{ color: colors.state.danger }} />
           <h1 className="page-title">Canlı Skorlar</h1>
         </div>
         <p className="page-subtitle">
@@ -43,40 +30,26 @@ function LivePage() {
         </p>
       </div>
 
-      {/* Bilgi Kartı */}
-      <div
-        className="card mb-4"
-        style={{
-          background: colors.gradients.card,
-          borderColor: colors.brand.primary,
-        }}
-      >
-        <div className="flex items-center gap-4">
-          <div
-            style={{
-              width: 12,
-              height: 12,
-              borderRadius: '50%',
-              backgroundColor: colors.state.danger,
-              animation: 'pulse 2s infinite',
-            }}
-          />
-          <div>
-            <strong>{games?.length ?? 0}</strong> canlı maç
+      {/* Live Stats Card */}
+      <div style={styles.statsCard}>
+        <div style={styles.statsContent}>
+          <div style={styles.liveDot} />
+          <div style={styles.statsText}>
+            <strong style={styles.statsCount}>{games?.length ?? 0}</strong> canlı maç
           </div>
-          <div className="text-muted">•</div>
-          <div className="text-muted text-sm">
+          <div style={styles.statsDivider}>•</div>
+          <div style={styles.statsInfo}>
             WebSocket ile real-time güncellemeler yakında
           </div>
         </div>
       </div>
 
-      {/* Canlı Maçlar */}
+      {/* Live Games */}
       {!games || games.length === 0 ? (
-        <div className="card">
+        <div className="card" style={styles.emptyCard}>
           <div className="empty-state">
-            <Radio size={64} style={{ opacity: 0.3 }} />
-            <h3 style={{ marginTop: 16 }}>Şu anda canlı maç yok</h3>
+            <Radio size={64} style={{ opacity: 0.3, color: colors.text.muted }} />
+            <h3 style={styles.emptyTitle}>Şu anda canlı maç yok</h3>
             <p className="text-muted">
               Maçlar başladığında burada görünecek
             </p>
@@ -85,116 +58,88 @@ function LivePage() {
       ) : (
         <div className="grid grid-2">
           {games.map((game) => (
-            <div
+            <GameCard
               key={game.id}
-              className="game-card live"
-              style={{
-                background: colors.gradients.dark,
-              }}
-            >
-              {/* Live Badge */}
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center gap-2">
-                  <div
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      backgroundColor:
-                        game.state === 'RUNNING'
-                          ? colors.gameStatus.live
-                          : colors.gameStatus.paused,
-                    }}
-                  />
-                  <span
-                    className={`game-status ${
-                      game.state === 'RUNNING' ? 'status-running' : 'status-paused'
-                    }`}
-                  >
-                    {game.state === 'RUNNING' ? '🔴 CANLI' : '⏸️ DURAKLATILDI'}
-                  </span>
-                </div>
-                <span className="text-muted text-sm">Maç #{game.id}</span>
-              </div>
-
-              {/* Skor Tablosu */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr auto 1fr',
-                  alignItems: 'center',
-                  gap: 20,
-                  padding: '20px 0',
-                }}
-              >
-                {/* Ev Sahibi */}
-                <div className="text-center">
-                  <div
-                    style={{
-                      fontSize: '1.5rem',
-                      fontWeight: 700,
-                      marginBottom: 8,
-                    }}
-                  >
-                    {game.home.name}
-                  </div>
-                  <ScorersList scorers={game.scorers?.home} />
-                </div>
-
-                {/* Skor */}
-                <div
-                  style={{
-                    fontSize: '3rem',
-                    fontWeight: 800,
-                    color: colors.brand.primary,
-                    textShadow: `0 0 20px ${colors.brand.primary}80`,
-                  }}
-                >
-                  {game.score.home} - {game.score.away}
-                </div>
-
-                {/* Deplasman */}
-                <div className="text-center">
-                  <div
-                    style={{
-                      fontSize: '1.5rem',
-                      fontWeight: 700,
-                      marginBottom: 8,
-                    }}
-                  >
-                    {game.away.name}
-                  </div>
-                  <ScorersList scorers={game.scorers?.away} />
-                </div>
-              </div>
-            </div>
+              game={game}
+              variant="live"
+            />
           ))}
         </div>
       )}
 
-      {/* Alt Bilgi */}
-      <div className="card mt-4" style={{ opacity: 0.7 }}>
-        <div className="text-center text-muted text-sm">
+      {/* Footer Info */}
+      <div className="card mt-4" style={styles.footerCard}>
+        <div style={styles.footerText}>
           💡 Maçları yönetmek için <strong>Maçlar</strong> sayfasını kullanın.
         </div>
       </div>
-
-      {/* CSS */}
-      <style>{`
-        .scorers-list {
-          margin-top: 8px;
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-
-        .scorer-item {
-          font-size: 0.75rem;
-          color: var(--text-secondary);
-        }
-      `}</style>
     </div>
   )
+}
+
+const styles = {
+  titleContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  statsCard: {
+    background: colors.gradients.card,
+    borderColor: colors.brand.primary,
+    borderRadius: '12px',
+    padding: '20px 24px',
+    marginBottom: '24px',
+    border: `1px solid ${colors.brand.primary}40`,
+    boxShadow: `0 4px 16px ${colors.brand.primary}15`,
+  },
+  statsContent: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+  },
+  liveDot: {
+    width: '12px',
+    height: '12px',
+    borderRadius: '50%',
+    backgroundColor: colors.state.danger,
+    animation: 'pulse 2s infinite',
+    boxShadow: `0 0 16px ${colors.state.danger}`,
+  },
+  statsText: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '6px',
+  },
+  statsCount: {
+    fontSize: '18px',
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  statsDivider: {
+    color: colors.text.muted,
+    fontSize: '18px',
+  },
+  statsInfo: {
+    color: colors.text.secondary,
+    fontSize: '14px',
+  },
+  emptyCard: {
+    padding: '60px 24px',
+  },
+  emptyTitle: {
+    marginTop: '16px',
+    marginBottom: '8px',
+    color: colors.text.primary,
+  },
+  footerCard: {
+    opacity: 0.7,
+    padding: '16px 24px',
+  },
+  footerText: {
+    textAlign: 'center',
+    color: colors.text.muted,
+    fontSize: '14px',
+  },
 }
 
 export default LivePage

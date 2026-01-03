@@ -157,7 +157,7 @@ function GamesPage() {
           </div>
         </div>
       ) : (
-        <div>
+        <div className="grid grid-2">
           {games.map((game) => (
             <GameCard
               key={game?.id ?? Math.random()}
@@ -175,67 +175,6 @@ function GamesPage() {
           ))}
         </div>
       )}
-
-      <style>{`
-        .goal-dropdown {
-          position: relative;
-          display: inline-block;
-        }
-
-        .dropdown-menu {
-          position: absolute;
-          top: 100%;
-          left: 50%;
-          transform: translateX(-50%);
-          background: var(--bg-secondary);
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          min-width: 180px;
-          z-index: 1000;
-          margin-top: 4px;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-        }
-
-        .dropdown-header {
-          padding: 8px 12px;
-          font-size: 0.75rem;
-          color: var(--text-secondary);
-          border-bottom: 1px solid var(--border);
-        }
-
-        .dropdown-item {
-          padding: 10px 12px;
-          cursor: pointer;
-          transition: background 0.2s;
-        }
-
-        .dropdown-item:hover {
-          background: var(--bg-card);
-        }
-
-        .dropdown-item.disabled {
-          color: var(--text-secondary);
-          cursor: not-allowed;
-        }
-
-        .dropdown-divider {
-          height: 1px;
-          background: var(--border);
-          margin: 4px 0;
-        }
-
-        .scorers-list {
-          margin-top: 8px;
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-        }
-
-        .scorer-item {
-          font-size: 0.75rem;
-          color: var(--text-secondary);
-        }
-      `}</style>
     </div>
   )
 }
