@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus, Trophy, ChevronRight } from 'lucide-react'
 import { cupApi, teamApi } from '../services/api'
 import { colors } from '../styles/colors'
-import { useMockData, useToggle, useSelection, useMultiSelection } from '../hooks'
+import { useMockData, useToggle, useMultiSelection } from '../hooks'
 import { Loader } from '../components/Loader'
 
 function TypeBadge({ type }) {
@@ -25,12 +26,11 @@ function TypeBadge({ type }) {
 }
 
 function CupsPage() {
+  const navigate = useNavigate()
   const [newCupName, setNewCupName] = useState('')
   const [cupType, setCupType] = useState('LEAGUE')
-  const [standings, setStandings] = useState([])
 
   const { value: showForm, toggle: toggleForm } = useToggle(false)
-  const { selected: selectedCup, select: selectCup } = useSelection()
   const { selected: selectedTeamIds, toggleItem: toggleTeam, isSelected } = useMultiSelection([])
 
   const loadCupsData = async () => {
@@ -45,10 +45,8 @@ function CupsPage() {
   const cups = data?.cups ?? []
   const teams = data?.teams ?? []
 
-  const handleSelectCup = async (cup) => {
-    selectCup(cup)
-    const standingsData = await cupApi.getStandings(cup.id)
-    setStandings(standingsData)
+  const handleSelectCup = (cup) => {
+    navigate(`/cups/${cup.id}`)
   }
 
   const handleCreateCup = async (e) => {
@@ -138,104 +136,42 @@ function CupsPage() {
         </div>
       )}
 
-      <div className="grid grid-2">
-        <div>
-          <div className="card">
-            <h3 className="card-title mb-4">Turnuvalar ({cups.length})</h3>
+      <div className="card">
+        <h3 className="card-title mb-4">Turnuvalar ({cups.length})</h3>
 
-            {cups.length === 0 ? (
-              <div className="empty-state">
-                <Trophy size={48} />
-                <p>Henüz turnuva yok</p>
-              </div>
-            ) : (
-              <div>
-                {cups.map((cup) => (
-                  <div
-                    key={cup.id}
-                    className="card"
-                    style={{
-                      cursor: 'pointer',
-                      borderColor:
-                        selectedCup?.id === cup.id ? colors.brand.primary : undefined,
-                    }}
-                    onClick={() => handleSelectCup(cup)}
-                  >
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <div className="flex items-center gap-2 mb-4">
-                          <Trophy size={20} />
-                          <strong>{cup.name}</strong>
-                        </div>
-                        <div className="flex gap-2 items-center">
-                          <TypeBadge type={cup.type} />
-                          <span className="text-muted text-sm">
-                            {cup.teams.length} takım • {cup.gameCount} maç
-                          </span>
-                        </div>
-                      </div>
-                      <ChevronRight size={20} className="text-muted" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+        {cups.length === 0 ? (
+          <div className="empty-state">
+            <Trophy size={48} />
+            <p>Henüz turnuva yok</p>
           </div>
-        </div>
-
-        <div>
-          {selectedCup ? (
-            <div className="card">
-              <h3 className="card-title mb-4">{selectedCup.name} - Puan Durumu</h3>
-
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Takım</th>
-                    <th>O</th>
-                    <th>G</th>
-                    <th>B</th>
-                    <th>M</th>
-                    <th>AG</th>
-                    <th>YG</th>
-                    <th>AV</th>
-                    <th>P</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {standings.map((row, index) => (
-                    <tr key={row.team}>
-                      <td>
-                        <strong>{index + 1}</strong>
-                      </td>
-                      <td>
-                        <strong>{row.team}</strong>
-                      </td>
-                      <td>{row.played}</td>
-                      <td className="text-success">{row.won}</td>
-                      <td>{row.draw}</td>
-                      <td className="text-danger">{row.lost}</td>
-                      <td>{row.gf}</td>
-                      <td>{row.ga}</td>
-                      <td>{row.gf - row.ga}</td>
-                      <td>
-                        <strong>{row.points}</strong>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="card">
-              <div className="empty-state">
-                <Trophy size={48} />
-                <p>Puan durumunu görmek için bir turnuva seçin</p>
+        ) : (
+          <div className="grid grid-3">
+            {cups.map((cup) => (
+              <div
+                key={cup.id}
+                className="card game-card-hover"
+                style={{
+                  cursor: 'pointer',
+                }}
+                onClick={() => handleSelectCup(cup)}
+              >
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex items-center gap-2">
+                    <Trophy size={20} color={colors.brand.primary} />
+                    <strong>{cup.name}</strong>
+                  </div>
+                  <ChevronRight size={20} className="text-muted" />
+                </div>
+                <div className="flex gap-2 items-center">
+                  <TypeBadge type={cup.type} />
+                  <span className="text-muted" style={{ fontSize: '13px' }}>
+                    {cup.teams.length} takım • {cup.gameCount} maç
+                  </span>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

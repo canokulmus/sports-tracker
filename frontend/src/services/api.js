@@ -1,14 +1,16 @@
 // src/services/api.js
 // Mock API servisi - Backend hazır olunca WebSocket'e çevrilecek
 
-import { 
-  mockTeams, 
-  mockGames, 
-  mockCups, 
+import {
+  mockTeams,
+  mockGames,
+  mockCups,
   mockStandings,
-  mockBracket,
-  delay, 
-  generateId 
+  mockGameTreeElimination,
+  mockGameTreeGroup,
+  mockGroupStandings,
+  delay,
+  generateId
 } from '../mocks';
 
 // Lokal state (mock database gibi)
@@ -221,14 +223,43 @@ export const cupApi = {
 
   getStandings: async (id) => {
     await delay(300);
-    // Mock için sabit standings döndür
+    const cup = cups.find((c) => c.id === id);
+
+    if (!cup) {
+      throw new Error("Cup not found");
+    }
+
+    // GROUP tournament için grup bazlı standings
+    if (cup.type === 'GROUP') {
+      return { ...mockGroupStandings };
+    }
+
+    // LEAGUE için normal standings
     return [...mockStandings];
   },
 
-  getBracket: async (id) => {
+  getGameTree: async (id) => {
     await delay(300);
-    // Mock için sabit bracket döndür
-    return { ...mockBracket };
+    const cup = cups.find((c) => c.id === id);
+
+    if (!cup) {
+      throw new Error("Cup not found");
+    }
+
+    // Only ELIMINATION and GROUP tournaments have GameTree
+    if (cup.type === 'LEAGUE') {
+      throw new Error("GameTree is not available for LEAGUE tournaments");
+    }
+
+    if (cup.type === 'ELIMINATION') {
+      return { ...mockGameTreeElimination };
+    }
+
+    if (cup.type === 'GROUP') {
+      return { ...mockGameTreeGroup };
+    }
+
+    throw new Error("Unknown cup type");
   },
 
   create: async (name, type, teamIds) => {

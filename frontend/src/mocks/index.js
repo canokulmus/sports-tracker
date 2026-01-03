@@ -117,6 +117,13 @@ export const mockCups = [
     teams: [1, 2, 3, 4, 5, 6, 7, 8],
     gameCount: 7,
   },
+  {
+    id: 3,
+    name: "Şampiyonlar Ligi Grubu",
+    type: "GROUP",
+    teams: [1, 2, 3, 4, 5, 6, 7, 8],
+    gameCount: 18,
+  },
 ];
 
 // ==========================================
@@ -134,21 +141,174 @@ export const mockStandings = [
 ];
 
 // ==========================================
-// BRACKET (ELIMINATION)
+// GAMETREE DATA
 // ==========================================
-export const mockBracket = {
+
+// GameTree for ELIMINATION tournament (Türkiye Kupası)
+export const mockGameTreeElimination = {
   "Quarter-Final": [
-    { game_id: 101, home: "Galatasaray", away: "Konyaspor", state: "ENDED", score: { home: 3, away: 0 } },
-    { game_id: 102, home: "Fenerbahçe", away: "Antalyaspor", state: "ENDED", score: { home: 2, away: 1 } },
-    { game_id: 103, home: "Beşiktaş", away: "Adana Demirspor", state: "ENDED", score: { home: 1, away: 0 } },
-    { game_id: 104, home: "Trabzonspor", away: "Başakşehir", state: "ENDED", score: { home: 2, away: 2 } },
+    {
+      game_id: 101,
+      home: "Galatasaray",
+      away: "Konyaspor",
+      datetime: "2025-01-10 20:00",
+      state: "ENDED",
+      score: { home: 3, away: 0 }
+    },
+    {
+      game_id: 102,
+      home: "Fenerbahçe",
+      away: "Antalyaspor",
+      datetime: "2025-01-10 20:00",
+      state: "ENDED",
+      score: { home: 2, away: 1 }
+    },
+    {
+      game_id: 103,
+      home: "Beşiktaş",
+      away: "Adana Demirspor",
+      datetime: "2025-01-11 20:00",
+      state: "ENDED",
+      score: { home: 1, away: 0 }
+    },
+    {
+      game_id: 104,
+      home: "Trabzonspor",
+      away: "Başakşehir",
+      datetime: "2025-01-11 20:00",
+      state: "ENDED",
+      score: { home: 2, away: 1 }
+    },
   ],
   "Semi-Final": [
-    { game_id: 105, home: "Galatasaray", away: "Fenerbahçe", state: "RUNNING", score: { home: 1, away: 1 } },
-    { game_id: 106, home: "Beşiktaş", away: "Trabzonspor", state: "READY", score: null },
+    {
+      game_id: 105,
+      home: "Galatasaray",
+      away: "Fenerbahçe",
+      datetime: "2025-01-18 21:00",
+      state: "RUNNING",
+      score: { home: 1, away: 1 }
+    },
+    {
+      game_id: 106,
+      home: "Beşiktaş",
+      away: "Trabzonspor",
+      datetime: "2025-01-18 21:00",
+      state: "READY",
+      score: null
+    },
   ],
   "Final": [
-    { game_id: 107, home: "Winner SF1", away: "Winner SF2", state: "READY", score: null },
+    {
+      game_id: 107,
+      home: "Winner of Game 105",
+      away: "Winner of Game 106",
+      datetime: "2025-01-25 21:00",
+      state: "READY",
+      score: null
+    },
+  ],
+};
+
+// GameTree for GROUP tournament (Şampiyonlar Ligi Grubu)
+export const mockGameTreeGroup = {
+  "Groups": {
+    "A": [
+      {
+        game_id: 201,
+        home: "Galatasaray",
+        away: "Fenerbahçe",
+        datetime: "2025-01-05 20:00",
+        state: "ENDED",
+        score: { home: 2, away: 1 }
+      },
+      {
+        game_id: 202,
+        home: "Galatasaray",
+        away: "Beşiktaş",
+        datetime: "2025-01-08 20:00",
+        state: "ENDED",
+        score: { home: 1, away: 1 }
+      },
+      {
+        game_id: 203,
+        home: "Fenerbahçe",
+        away: "Beşiktaş",
+        datetime: "2025-01-11 20:00",
+        state: "ENDED",
+        score: { home: 0, away: 2 }
+      },
+    ],
+    "B": [
+      {
+        game_id: 204,
+        home: "Trabzonspor",
+        away: "Başakşehir",
+        datetime: "2025-01-05 20:00",
+        state: "ENDED",
+        score: { home: 3, away: 1 }
+      },
+      {
+        game_id: 205,
+        home: "Trabzonspor",
+        away: "Adana Demirspor",
+        datetime: "2025-01-08 20:00",
+        state: "ENDED",
+        score: { home: 2, away: 0 }
+      },
+      {
+        game_id: 206,
+        home: "Başakşehir",
+        away: "Adana Demirspor",
+        datetime: "2025-01-11 20:00",
+        state: "ENDED",
+        score: { home: 1, away: 1 }
+      },
+    ],
+  },
+  "Playoffs": {
+    "Semi-Final": [
+      {
+        game_id: 207,
+        home: "Galatasaray",
+        away: "Trabzonspor",
+        datetime: "2025-01-18 21:00",
+        state: "RUNNING",
+        score: { home: 2, away: 1 }
+      },
+      {
+        game_id: 208,
+        home: "Beşiktaş",
+        away: "Başakşehir",
+        datetime: "2025-01-18 21:00",
+        state: "READY",
+        score: null
+      },
+    ],
+    "Final": [
+      {
+        game_id: 209,
+        home: "Winner of Game 207",
+        away: "Winner of Game 208",
+        datetime: "2025-01-25 21:00",
+        state: "READY",
+        score: null
+      },
+    ],
+  },
+};
+
+// Group standings for GROUP tournament
+export const mockGroupStandings = {
+  "A": [
+    { team: "Beşiktaş", played: 2, won: 1, draw: 1, lost: 0, gf: 3, ga: 1, points: 3 },
+    { team: "Galatasaray", played: 2, won: 1, draw: 1, lost: 0, gf: 3, ga: 2, points: 3 },
+    { team: "Fenerbahçe", played: 2, won: 0, draw: 0, lost: 2, gf: 1, ga: 4, points: 0 },
+  ],
+  "B": [
+    { team: "Trabzonspor", played: 2, won: 2, draw: 0, lost: 0, gf: 5, ga: 1, points: 4 },
+    { team: "Başakşehir", played: 2, won: 0, draw: 1, lost: 1, gf: 2, ga: 4, points: 1 },
+    { team: "Adana Demirspor", played: 2, won: 0, draw: 1, lost: 1, gf: 1, ga: 3, points: 1 },
   ],
 };
 
