@@ -1,90 +1,112 @@
 // src/styles/colors.js
-// Merkezi renk sistemi - Tüm renkler buradan import edilir
+// Merkezi renk sistemi - Modern Dark Theme with Neon Accents
 
 /**
  * Ana renk paleti
- * Dark theme tasarımı için optimize edilmiş
+ * Modern dark theme - Neon vibe
  */
 export const colors = {
-  // Background Colors (Arkaplan renkleri)
+  // Background Colors (Arkaplan renkleri) - Daha koyu ve modern
   background: {
-    primary: '#0f172a',      // Ana sayfa arka planı (slate-950)
-    secondary: '#1e293b',    // Card ve sidebar arka planı (slate-800)
-    tertiary: '#334155',     // Hover ve secondary card (slate-700)
-    overlay: 'rgba(0, 0, 0, 0.5)', // Modal overlay
+    primary: '#0a0e1a',      // Çok koyu navy-black
+    secondary: '#141824',    // Koyu card background
+    tertiary: '#1e2433',     // Hover ve tertiary
+    quaternary: '#2a3142',   // Daha açık seviye
+    overlay: 'rgba(0, 0, 0, 0.7)',
   },
 
   // Text Colors (Metin renkleri)
   text: {
-    primary: '#f1f5f9',      // Ana metin rengi (slate-100)
-    secondary: '#94a3b8',    // İkincil metin, açıklamalar (slate-400)
-    muted: '#64748b',        // Çok soluk metin (slate-500)
-    inverse: '#0f172a',      // Açık arka plan için koyu metin
+    primary: '#e8edf4',      // Parlak beyaz-mavi
+    secondary: '#8b95a8',    // Orta ton gri
+    muted: '#5a6477',        // Soluk gri
+    inverse: '#0a0e1a',      // Koyu
   },
 
-  // Brand Colors (Marka renkleri)
+  // Brand Colors (Marka renkleri) - Neon mavi/mor tonları
   brand: {
-    primary: '#3b82f6',      // Ana mavi (blue-500)
-    primaryHover: '#2563eb', // Hover mavi (blue-600)
-    primaryLight: '#60a5fa', // Açık mavi (blue-400)
-    primaryDark: '#1e40af',  // Koyu mavi (blue-800)
+    primary: '#6366f1',      // Neon indigo
+    primaryHover: '#4f46e5', // Koyu indigo
+    primaryLight: '#818cf8', // Açık indigo
+    primaryDark: '#3730a3',  // Çok koyu indigo
+    neon: '#a855f7',         // Neon mor
+    neonCyan: '#06b6d4',     // Neon cyan
   },
 
-  // State Colors (Durum renkleri)
+  // State Colors (Durum renkleri) - Neon vibe
   state: {
-    success: '#22c55e',      // Başarılı, aktif (green-500)
-    successLight: '#86efac', // Açık yeşil (green-300)
-    warning: '#f59e0b',      // Uyarı, beklemede (amber-500)
-    warningLight: '#fbbf24', // Açık sarı (amber-400)
-    danger: '#ef4444',       // Hata, iptal (red-500)
-    dangerLight: '#fca5a5',  // Açık kırmızı (red-300)
-    info: '#06b6d4',         // Bilgi (cyan-500)
-    infoLight: '#67e8f9',    // Açık mavi-yeşil (cyan-300)
+    success: '#10b981',      // Neon yeşil
+    successLight: '#34d399',
+    successNeon: '#22c55e',  // Parlak neon yeşil
+    warning: '#f59e0b',      // Neon amber
+    warningLight: '#fbbf24',
+    warningNeon: '#fbbf24',  // Parlak neon sarı
+    danger: '#ef4444',       // Neon kırmızı
+    dangerLight: '#f87171',
+    dangerNeon: '#ff4d6d',   // Parlak neon kırmızı
+    info: '#06b6d4',         // Neon cyan
+    infoLight: '#22d3ee',
+    infoNeon: '#00d9ff',     // Parlak neon cyan
   },
 
-  // Game Status Colors (Oyun durum renkleri)
+  // Game Status Colors (Oyun durum renkleri) - Neon
   gameStatus: {
-    live: '#22c55e',         // Canlı maç (yeşil)
-    scheduled: '#94a3b8',    // Planlanmış (gri)
-    paused: '#f59e0b',       // Duraklatılmış (sarı)
-    ended: '#64748b',        // Bitmiş (koyu gri)
-    cancelled: '#ef4444',    // İptal (kırmızı)
+    live: '#10b981',         // Neon yeşil
+    scheduled: '#8b95a8',    // Gri
+    paused: '#fbbf24',       // Neon sarı
+    ended: '#5a6477',        // Koyu gri
+    cancelled: '#ff4d6d',    // Neon kırmızı
   },
 
   // Tournament Type Colors (Turnuva tipi renkleri)
   tournament: {
-    league: '#3b82f6',       // Lig formatı (mavi)
-    elimination: '#ef4444',  // Eleme formatı (kırmızı)
-    group: '#22c55e',        // Grup formatı (yeşil)
-    playoff: '#f59e0b',      // Playoff formatı (sarı)
+    league: '#6366f1',       // Neon indigo
+    elimination: '#ff4d6d',  // Neon kırmızı
+    group: '#10b981',        // Neon yeşil
+    playoff: '#fbbf24',      // Neon sarı
   },
 
   // UI Elements (UI elementleri)
   ui: {
-    border: '#475569',       // Border rengi (slate-600)
-    borderLight: '#64748b',  // Açık border (slate-500)
-    borderDark: '#334155',   // Koyu border (slate-700)
-    borderSubtle: '#475569', // Subtle border (slate-600)
-    divider: '#334155',      // Ayırıcı çizgi
-    shadow: 'rgba(0, 0, 0, 0.3)', // Gölge
-    info: '#06b6d4',         // Info color (cyan-500)
+    border: '#2a3142',       // Subtle border
+    borderLight: '#363d4e',  // Açık border
+    borderDark: '#1e2433',   // Koyu border
+    borderSubtle: '#2a3142',
+    borderNeon: '#6366f140', // Neon border (transparent)
+    divider: '#1e2433',
+    shadow: 'rgba(0, 0, 0, 0.5)',
+    info: '#06b6d4',
   },
 
-  // Gradients (Degradeler)
+  // Gradients (Degradeler) - Neon gradients
   gradients: {
-    primary: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-    dark: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-    success: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-    danger: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-    card: 'linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)',
+    primary: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+    dark: 'linear-gradient(135deg, #1e2433 0%, #0a0e1a 100%)',
+    success: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+    danger: 'linear-gradient(135deg, #ff4d6d 0%, #ef4444 100%)',
+    card: 'linear-gradient(135deg, #1e2433 0%, #141824 100%)',
+    neon: 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #06b6d4 100%)',
+    neonGreen: 'linear-gradient(135deg, #10b981 0%, #22c55e 100%)',
+    neonPurple: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)',
+  },
+
+  // Neon Glow Colors (Işıltılı efektler için)
+  neon: {
+    purple: '#a855f7',
+    blue: '#6366f1',
+    cyan: '#06b6d4',
+    green: '#10b981',
+    yellow: '#fbbf24',
+    red: '#ff4d6d',
+    pink: '#ec4899',
   },
 
   // Team/Player Badge Colors (Takım/Oyuncu rozet renkleri)
   badge: {
-    blue: '#3b82f6',
-    green: '#22c55e',
-    yellow: '#f59e0b',
-    red: '#ef4444',
+    blue: '#6366f1',
+    green: '#10b981',
+    yellow: '#fbbf24',
+    red: '#ff4d6d',
     purple: '#a855f7',
     pink: '#ec4899',
     orange: '#f97316',
@@ -93,16 +115,15 @@ export const colors = {
 
   // Connection Status (Bağlantı durumu)
   connection: {
-    online: '#22c55e',       // Çevrimiçi (yeşil)
-    offline: '#ef4444',      // Çevrimdışı (kırmızı)
-    mock: '#f59e0b',         // Mock mode (sarı)
-    connecting: '#06b6d4',   // Bağlanıyor (mavi)
+    online: '#10b981',       // Neon yeşil
+    offline: '#ff4d6d',      // Neon kırmızı
+    mock: '#fbbf24',         // Neon sarı
+    connecting: '#06b6d4',   // Neon cyan
   },
 }
 
 /**
  * CSS Variable olarak kullanım için
- * Örnek: const style = { color: cssVars.text.primary }
  */
 export const cssVars = {
   background: {
@@ -130,10 +151,8 @@ export const cssVars = {
 
 /**
  * Opacity helpers
- * Örnek: withOpacity(colors.brand.primary, 0.5)
  */
 export const withOpacity = (color, opacity) => {
-  // Hex to RGBA conversion
   const hex = color.replace('#', '')
   const r = parseInt(hex.substring(0, 2), 16)
   const g = parseInt(hex.substring(2, 4), 16)
@@ -150,7 +169,6 @@ const quickColors = {
   transparent: 'transparent',
 }
 
-// Ana colors objesine ekle
 colors.quickColors = quickColors
 
 export default colors

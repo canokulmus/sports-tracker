@@ -29,6 +29,14 @@ function GoalDropdown({ players = [], onScore, side, disabled = false }) {
       <button
         style={styles.triggerBtn}
         onClick={() => setIsOpen(!isOpen)}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = `${colors.state.success}15`
+          e.currentTarget.style.borderColor = `${colors.state.success}60`
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = colors.background.tertiary
+          e.currentTarget.style.borderColor = `${colors.state.success}40`
+        }}
         type="button"
       >
         <Target size={16} />
@@ -89,15 +97,14 @@ const styles = {
     alignItems: 'center',
     gap: '6px',
     padding: '8px 16px',
-    background: colors.gradients.success,
-    color: '#fff',
-    border: 'none',
-    borderRadius: '10px',
+    background: colors.background.tertiary,
+    color: colors.state.success,
+    border: `1px solid ${colors.state.success}40`,
+    borderRadius: '8px',
     fontSize: '14px',
-    fontWeight: '600',
+    fontWeight: '500',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
-    boxShadow: '0 2px 8px rgba(34, 197, 94, 0.25)',
     outline: 'none',
   },
   menu: {

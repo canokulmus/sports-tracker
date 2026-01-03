@@ -216,58 +216,57 @@ function GameCard({
         </div>
       )}
 
-      {/* Inline Styles for Hover Effects */}
+      {/* Inline Styles for Subtle Dark Theme Buttons */}
       <style>{`
         .game-action-btn {
           display: inline-flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
-          padding: 10px 24px;
-          border-radius: 10px;
-          fontSize: 14px;
-          font-weight: 600;
+          padding: 10px 20px;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 500;
           cursor: pointer;
-          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: all 0.2s ease;
           outline: none;
-          position: relative;
-          background: transparent;
+          border: 1px solid;
         }
 
         .game-action-start {
-          border: 2px solid ${colors.state.success};
+          background: ${colors.background.tertiary};
+          border-color: ${colors.state.success}40;
           color: ${colors.state.success};
         }
 
         .game-action-start:hover {
-          background: ${colors.state.success};
-          color: #fff;
-          box-shadow: 0 0 24px ${colors.state.success}60;
-          transform: translateY(-2px);
+          background: ${colors.state.success}15;
+          border-color: ${colors.state.success}60;
+          transform: translateY(-1px);
         }
 
         .game-action-pause {
-          border: 2px solid ${colors.state.warning};
+          background: ${colors.background.tertiary};
+          border-color: ${colors.state.warning}40;
           color: ${colors.state.warning};
         }
 
         .game-action-pause:hover {
-          background: ${colors.state.warning};
-          color: #000;
-          box-shadow: 0 0 24px ${colors.state.warning}60;
-          transform: translateY(-2px);
+          background: ${colors.state.warning}15;
+          border-color: ${colors.state.warning}60;
+          transform: translateY(-1px);
         }
 
         .game-action-end {
-          border: 2px solid ${colors.state.danger};
+          background: ${colors.background.tertiary};
+          border-color: ${colors.state.danger}40;
           color: ${colors.state.danger};
         }
 
         .game-action-end:hover {
-          background: ${colors.state.danger};
-          color: #fff;
-          box-shadow: 0 0 24px ${colors.state.danger}60;
-          transform: translateY(-2px);
+          background: ${colors.state.danger}15;
+          border-color: ${colors.state.danger}60;
+          transform: translateY(-1px);
         }
 
         .game-action-btn:active {
@@ -342,13 +341,13 @@ const styles = {
     fontWeight: '800',
     color: colors.brand.primary,
     lineHeight: '1',
-    textShadow: `0 0 24px ${colors.brand.primary}40`,
+    textShadow: `0 0 12px ${colors.brand.primary}30`,
     transition: 'all 0.3s ease',
   },
   scoreWinner: {
     color: colors.state.success,
-    textShadow: `0 0 32px ${colors.state.success}60`,
-    transform: 'scale(1.1)',
+    textShadow: `0 0 16px ${colors.state.success}40`,
+    transform: 'scale(1.08)',
   },
   separator: {
     display: 'flex',

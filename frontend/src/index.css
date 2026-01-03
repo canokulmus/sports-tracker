@@ -8,17 +8,17 @@
 }
 
 :root {
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-card: #334155;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --accent: #3b82f6;
-  --accent-hover: #2563eb;
-  --success: #22c55e;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --border: #475569;
+  --bg-primary: #0a0e1a;
+  --bg-secondary: #141824;
+  --bg-card: #1e2433;
+  --text-primary: #e8edf4;
+  --text-secondary: #8b95a8;
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --success: #10b981;
+  --warning: #fbbf24;
+  --danger: #ff4d6d;
+  --border: #2a3142;
 }
 
 body {
@@ -82,52 +82,88 @@ body {
   color: var(--text-secondary);
 }
 
-/* Buttons */
+/* Buttons - Subtle Dark Theme */
 .btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 20px;
-  border: none;
+  padding: 10px 18px;
+  border: 1px solid;
   border-radius: 8px;
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  outline: none;
 }
 
 .btn-primary {
-  background-color: var(--accent);
-  color: white;
+  background: var(--bg-card);
+  border-color: #6366f140;
+  color: var(--accent);
 }
 
 .btn-primary:hover {
-  background-color: var(--accent-hover);
+  background: #6366f115;
+  border-color: #6366f160;
+  transform: translateY(-1px);
 }
 
 .btn-success {
-  background-color: var(--success);
-  color: white;
+  background: var(--bg-card);
+  border-color: #10b98140;
+  color: var(--success);
+}
+
+.btn-success:hover {
+  background: #10b98115;
+  border-color: #10b98160;
+  transform: translateY(-1px);
 }
 
 .btn-warning {
-  background-color: var(--warning);
-  color: black;
+  background: var(--bg-card);
+  border-color: #fbbf2440;
+  color: var(--warning);
+}
+
+.btn-warning:hover {
+  background: #fbbf2415;
+  border-color: #fbbf2460;
+  transform: translateY(-1px);
 }
 
 .btn-danger {
-  background-color: var(--danger);
-  color: white;
+  background: var(--bg-card);
+  border-color: #ff4d6d40;
+  color: var(--danger);
+}
+
+.btn-danger:hover {
+  background: #ff4d6d15;
+  border-color: #ff4d6d60;
+  transform: translateY(-1px);
 }
 
 .btn-secondary {
-  background-color: var(--bg-card);
+  background: var(--bg-card);
+  border-color: #2a3142;
   color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+  background: #2a3142;
+  border-color: #363d4e;
+  transform: translateY(-1px);
 }
 
 .btn-sm {
   padding: 6px 12px;
   font-size: 0.75rem;
+}
+
+.btn:active {
+  transform: translateY(0);
 }
 
 /* Forms */
@@ -358,9 +394,12 @@ body {
   color: var(--text-secondary);
 }
 
-/* Game Card Hover Effect */
+/* Game Card Hover Effect - Neon Style */
 .game-card-hover:hover {
   transform: translateY(-4px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3) !important;
-  border-color: var(--accent) !important;
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    0 0 30px rgba(99, 102, 241, 0.3),
+    0 0 60px rgba(99, 102, 241, 0.1) !important;
+  border-color: #6366f1 !important;
 }
