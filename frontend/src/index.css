@@ -394,12 +394,84 @@ body {
   color: var(--text-secondary);
 }
 
-/* Game Card Hover Effect - Neon Style */
+/* Animated Border Keyframes */
+@keyframes borderRotate {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Game Card Hover Effect - Subtle with Animated Border */
+.game-card-hover {
+  position: relative;
+}
+
+.game-card-hover::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 16px;
+  padding: 2px;
+  background: linear-gradient(90deg, transparent, transparent);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.game-card-hover:hover::before {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    #6366f1,
+    #818cf8,
+    #6366f1,
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: borderRotate 2s linear infinite;
+  opacity: 1;
+}
+
 .game-card-hover:hover {
   transform: translateY(-4px);
   box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.4),
-    0 0 30px rgba(99, 102, 241, 0.3),
-    0 0 60px rgba(99, 102, 241, 0.1) !important;
-  border-color: #6366f1 !important;
+    0 8px 24px rgba(0, 0, 0, 0.3),
+    0 0 20px rgba(99, 102, 241, 0.15) !important;
+  border-color: #6366f140 !important;
+}
+
+/* Live Game Card - Animated Green Border */
+.game-card-live {
+  position: relative;
+}
+
+.game-card-live::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 16px;
+  padding: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    #10b981,
+    #34d399,
+    #10b981,
+    transparent
+  );
+  background-size: 200% 100%;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: borderRotate 3s linear infinite;
+  pointer-events: none;
 }

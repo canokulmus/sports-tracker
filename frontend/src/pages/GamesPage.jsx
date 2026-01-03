@@ -1,12 +1,15 @@
+import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { gameApi, teamApi } from '../services/api'
 import { GameCard } from '../components/Game'
 import { useMockData, useToggle, useFormState, useGames } from '../hooks'
 import { Loader } from '../components/Loader'
+import Tabs from '../components/Tabs'
 
 function GamesPage() {
   const { value: showForm, toggle: toggleForm } = useToggle(false)
   const { formData: newGame, updateField, resetForm } = useFormState({ homeId: '', awayId: '' })
+  const [activeTab, setActiveTab] = useState('all')
 
   const loadGamesData = async () => {
     const [gamesData, teamsData] = await Promise.all([
@@ -30,9 +33,32 @@ function GamesPage() {
   }
 
   const { data, loading, reload } = useMockData(loadGamesData)
-  const games = data?.games ?? []
+  const allGames = data?.games ?? []
   const teams = data?.teams ?? []
   const gamePlayers = data?.gamePlayers ?? {}
+
+  // Filter games by tab
+  const filteredGames = activeTab === 'all'
+    ? allGames
+    : allGames.filter(game => game.state === activeTab.toUpperCase())
+
+  // Count games by state
+  const gameCounts = {
+    all: allGames.length,
+    ready: allGames.filter(g => g.state === 'READY').length,
+    running: allGames.filter(g => g.state === 'RUNNING').length,
+    paused: allGames.filter(g => g.state === 'PAUSED').length,
+    ended: allGames.filter(g => g.state === 'ENDED').length,
+  }
+
+  // Define tabs
+  const tabs = [
+    { id: 'all', label: 'All', count: gameCounts.all },
+    { id: 'running', label: 'Running', count: gameCounts.running },
+    { id: 'paused', label: 'Paused', count: gameCounts.paused },
+    { id: 'ready', label: 'Ready', count: gameCounts.ready },
+    { id: 'ended', label: 'Ended', count: gameCounts.ended },
+  ]
 
   const {
     createGame,
@@ -117,15 +143,19 @@ function GamesPage() {
         </div>
       )}
 
-      {games.length === 0 ? (
+      {/* Tabs */}
+      <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {/* Games Grid */}
+      {filteredGames.length === 0 ? (
         <div className="card">
           <div className="empty-state">
-            <p>No games yet</p>
+            <p>No {activeTab !== 'all' ? activeTab : ''} games yet</p>
           </div>
         </div>
       ) : (
         <div className="grid grid-2">
-          {games.map((game, index) => (
+          {filteredGames.map((game, index) => (
             <GameCard
               key={game?.id ?? `game-${index}`}
               game={game}

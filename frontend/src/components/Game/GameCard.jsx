@@ -65,8 +65,10 @@ function GameCard({
     ...(variant === 'live' ? { background: colors.gradients.dark, boxShadow: `0 8px 32px ${colors.brand.primary}20` } : {}),
   }
 
+  const cardClasses = `game-card-hover ${isLive ? 'game-card-live' : ''}`
+
   return (
-    <div style={cardStyle} className="game-card-hover">
+    <div style={cardStyle} className={cardClasses}>
       {/* Header */}
       <div style={styles.header}>
         <div style={styles.headerLeft}>
@@ -320,7 +322,7 @@ const styles = {
     display: 'grid',
     gridTemplateColumns: '1fr auto 1fr',
     gap: '32px',
-    alignItems: 'center',
+    alignItems: 'start',
     marginBottom: '24px',
   },
   team: {
@@ -328,6 +330,7 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     gap: '12px',
+    minHeight: '200px',
   },
   teamName: {
     fontSize: '20px',
@@ -343,6 +346,10 @@ const styles = {
     lineHeight: '1',
     textShadow: `0 0 12px ${colors.brand.primary}30`,
     transition: 'all 0.3s ease',
+    minHeight: '56px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scoreWinner: {
     color: colors.state.success,
