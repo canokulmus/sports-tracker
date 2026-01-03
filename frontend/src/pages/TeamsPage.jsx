@@ -1,86 +1,36 @@
 import { useState } from 'react'
 import { Plus, Trash2, UserPlus, X, Users } from 'lucide-react'
 import { teamApi } from '../services/api'
-import { useMockData, useSelection, useFormState } from '../hooks'
+import { useMockData, useSelection, useFormState, useTeams } from '../hooks'
 import { Loader } from '../components/Loader'
 import CustomFieldsManager from '../components/CustomFields'
-import { useDialog } from '../context/DialogContext'
 
 function TeamsPage() {
   const [newTeamName, setNewTeamName] = useState('')
   const { selected: selectedTeam, select: selectTeam, clear: clearSelection } = useSelection()
   const { formData: newPlayer, updateField, resetForm } = useFormState({ name: '', no: '' })
-  const { confirm } = useDialog()
 
   const { data: teams, loading, reload } = useMockData(() => teamApi.getAll())
 
+  const {
+    createTeam,
+    deleteTeam,
+    addPlayer,
+    removePlayer,
+    addCustomField,
+    deleteCustomField,
+  } = useTeams({ reload, selectedTeam, selectTeam })
+
   const handleCreateTeam = async (e) => {
     e.preventDefault()
-    if (!newTeamName.trim()) return
-
-    await teamApi.create(newTeamName)
-    setNewTeamName('')
-    reload()
-  }
-
-  const handleDeleteTeam = async (id) => {
-    confirm({
-      title: 'Delete Team',
-      message: 'Are you sure you want to delete this team? This action cannot be undone.',
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
-      onConfirm: async () => {
-        await teamApi.delete(id)
-        reload()
-      },
-    })
+    const success = await createTeam(newTeamName)
+    if (success) setNewTeamName('')
   }
 
   const handleAddPlayer = async (e) => {
     e.preventDefault()
-    if (!newPlayer.name || !newPlayer.no || !selectedTeam) return
-
-    await teamApi.addPlayer(selectedTeam.id, newPlayer.name, parseInt(newPlayer.no))
-    resetForm()
-    reload()
-
-    const updated = await teamApi.getById(selectedTeam.id)
-    selectTeam(updated)
-  }
-
-  const handleRemovePlayer = async (playerName) => {
-    confirm({
-      title: 'Remove Player',
-      message: `Are you sure you want to remove ${playerName} from the team?`,
-      confirmText: 'Remove',
-      cancelText: 'Cancel',
-      onConfirm: async () => {
-        if (!selectedTeam) return
-        await teamApi.removePlayer(selectedTeam.id, playerName)
-        reload()
-
-        const updated = await teamApi.getById(selectedTeam.id)
-        selectTeam(updated)
-      },
-    })
-  }
-
-  const handleAddCustomField = async (key, value) => {
-    if (!selectedTeam) return
-    await teamApi.setCustomField(selectedTeam.id, key, value)
-    reload()
-
-    const updated = await teamApi.getById(selectedTeam.id)
-    selectTeam(updated)
-  }
-
-  const handleDeleteCustomField = async (key) => {
-    if (!selectedTeam) return
-    await teamApi.deleteCustomField(selectedTeam.id, key)
-    reload()
-
-    const updated = await teamApi.getById(selectedTeam.id)
-    selectTeam(updated)
+    const success = await addPlayer(newPlayer.name, newPlayer.no)
+    if (success) resetForm()
   }
 
   if (loading) {
@@ -164,7 +114,7 @@ function TeamsPage() {
                             className="btn btn-danger btn-sm"
                             onClick={(e) => {
                               e.stopPropagation()
-                              handleDeleteTeam(team.id)
+                              deleteTeam(team.id)
                             }}
                           >
                             <Trash2 size={14} />
@@ -241,7 +191,7 @@ function TeamsPage() {
                         <td className="text-right">
                           <button
                             className="btn btn-danger btn-sm"
-                            onClick={() => handleRemovePlayer(name)}
+                            onClick={() => removePlayer(name)}
                           >
                             <Trash2 size={14} />
                           </button>
@@ -254,8 +204,8 @@ function TeamsPage() {
 
               <CustomFieldsManager
                 fields={selectedTeam}
-                onAddField={handleAddCustomField}
-                onDeleteField={handleDeleteCustomField}
+                onAddField={addCustomField}
+                onDeleteField={deleteCustomField}
               />
             </div>
           ) : (

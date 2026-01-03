@@ -1,14 +1,12 @@
 import { Plus } from 'lucide-react'
 import { gameApi, teamApi } from '../services/api'
 import { GameCard } from '../components/Game'
-import { useMockData, useToggle, useFormState } from '../hooks'
+import { useMockData, useToggle, useFormState, useGames } from '../hooks'
 import { Loader } from '../components/Loader'
-import { useDialog } from '../context/DialogContext'
 
 function GamesPage() {
   const { value: showForm, toggle: toggleForm } = useToggle(false)
   const { formData: newGame, updateField, resetForm } = useFormState({ homeId: '', awayId: '' })
-  const { confirm, alert } = useDialog()
 
   const loadGamesData = async () => {
     const [gamesData, teamsData] = await Promise.all([
@@ -36,73 +34,23 @@ function GamesPage() {
   const teams = data?.teams ?? []
   const gamePlayers = data?.gamePlayers ?? {}
 
+  const {
+    createGame,
+    startGame,
+    pauseGame,
+    resumeGame,
+    endGame,
+    recordScore,
+    deleteGame,
+  } = useGames({ reload })
+
   const handleCreateGame = async (e) => {
     e.preventDefault()
-    if (!newGame.homeId || !newGame.awayId) return
-    if (newGame.homeId === newGame.awayId) {
-      alert({
-        title: 'Invalid Selection',
-        message: 'You cannot select the same team for both home and away!',
-      })
-      return
-    }
-
-    try {
-      await gameApi.create(parseInt(newGame.homeId), parseInt(newGame.awayId))
+    const success = await createGame(newGame.homeId, newGame.awayId)
+    if (success) {
       resetForm()
       toggleForm()
-      reload()
-    } catch (error) {
-      console.error('Error creating game:', error)
-      alert({
-        title: 'Error',
-        message: 'Could not create game. Please try again.',
-      })
     }
-  }
-
-  const handleGameAction = async (actionFn, id) => {
-    try {
-      await actionFn(id)
-      reload()
-    } catch (error) {
-      console.error('Action error:', error)
-    }
-  }
-
-  const handleStart = (id) => handleGameAction(gameApi.start, id)
-  const handlePause = (id) => handleGameAction(gameApi.pause, id)
-  const handleResume = (id) => handleGameAction(gameApi.resume, id)
-  const handleEnd = (id) => handleGameAction(gameApi.end, id)
-
-  const handleScore = async (gameId, side, playerName) => {
-    try {
-      await gameApi.score(gameId, side, playerName, 1)
-      reload()
-    } catch (error) {
-      console.error('Error recording goal:', error)
-    }
-  }
-
-  const handleDelete = async (id) => {
-    confirm({
-      title: 'Delete Game',
-      message: 'Are you sure you want to delete this game? This action cannot be undone.',
-      confirmText: 'Delete',
-      cancelText: 'Cancel',
-      onConfirm: async () => {
-        try {
-          await gameApi.delete(id)
-          reload()
-        } catch (error) {
-          console.error('Error deleting game:', error)
-          alert({
-            title: 'Error',
-            message: 'Could not delete game. Please try again.',
-          })
-        }
-      },
-    })
   }
 
   if (loading) {
@@ -177,19 +125,19 @@ function GamesPage() {
         </div>
       ) : (
         <div className="grid grid-2">
-          {games.map((game) => (
+          {games.map((game, index) => (
             <GameCard
-              key={game?.id ?? Math.random()}
+              key={game?.id ?? `game-${index}`}
               game={game}
               players={gamePlayers[game?.id] ?? { home: [], away: [] }}
               showControls={true}
               showDeleteButton={true}
-              onStart={handleStart}
-              onPause={handlePause}
-              onResume={handleResume}
-              onEnd={handleEnd}
-              onScore={handleScore}
-              onDelete={handleDelete}
+              onStart={startGame}
+              onPause={pauseGame}
+              onResume={resumeGame}
+              onEnd={endGame}
+              onScore={recordScore}
+              onDelete={deleteGame}
             />
           ))}
         </div>
