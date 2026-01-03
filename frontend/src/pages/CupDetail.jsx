@@ -44,7 +44,7 @@ function CupDetail() {
       }
     } catch (error) {
       console.error('Error loading cup data:', error)
-      alert('Turnuva bilgileri yüklenemedi')
+      alert('Could not load tournament details')
       navigate('/cups')
     } finally {
       setLoading(false)
@@ -52,13 +52,13 @@ function CupDetail() {
   }
 
   if (loading) {
-    return <Loader text="Turnuva detayları yükleniyor..." />
+    return <Loader text="Loading tournament details..." />
   }
 
   if (!cup) {
     return (
       <div style={styles.empty}>
-        <p>Turnuva bulunamadı</p>
+        <p>Tournament not found</p>
       </div>
     )
   }
@@ -75,7 +75,7 @@ function CupDetail() {
           style={styles.backBtn}
         >
           <ArrowLeft size={18} />
-          Geri
+          Back
         </button>
 
         <div style={styles.headerInfo}>
@@ -94,7 +94,7 @@ function CupDetail() {
               {cup.type}
             </span>
             <span className="text-muted">
-              {cup.teams.length} takım • {cup.gameCount} maç
+              {cup.teams.length} teams • {cup.gameCount} games
             </span>
           </div>
         </div>
@@ -109,7 +109,7 @@ function CupDetail() {
           }}
           onClick={() => setActiveTab('standings')}
         >
-          Puan Durumu
+          Standings
         </button>
         {hasGameTree && (
           <button
@@ -119,7 +119,7 @@ function CupDetail() {
             }}
             onClick={() => setActiveTab('gametree')}
           >
-            Maç Ağacı
+            Bracket
           </button>
         )}
       </div>
@@ -128,14 +128,14 @@ function CupDetail() {
       <div className="card" style={{ marginTop: '24px' }}>
         {activeTab === 'standings' && (
           <div>
-            <h3 className="card-title mb-4">Puan Durumu</h3>
+            <h3 className="card-title mb-4">Standings</h3>
             <StandingsTable standings={standings} cupType={cup.type} />
           </div>
         )}
 
         {activeTab === 'gametree' && (
           <div>
-            <h3 className="card-title mb-4">Maç Ağacı</h3>
+            <h3 className="card-title mb-4">Tournament Bracket</h3>
             <GameTree gameTree={gameTree} cupType={cup.type} />
           </div>
         )}

@@ -3,25 +3,25 @@ import { colors } from '../../styles/colors'
 
 const STATUS_CONFIG = {
   READY: {
-    label: 'Bekliyor',
+    label: 'Ready',
     color: colors.gameStatus.scheduled,
     bgColor: `${colors.gameStatus.scheduled}20`,
     icon: '⏱️',
   },
   RUNNING: {
-    label: 'Canlı',
+    label: 'Live',
     color: colors.gameStatus.live,
     bgColor: `${colors.gameStatus.live}20`,
     icon: '🔴',
   },
   PAUSED: {
-    label: 'Duraklatıldı',
+    label: 'Paused',
     color: colors.gameStatus.paused,
     bgColor: `${colors.gameStatus.paused}20`,
     icon: '⏸️',
   },
   ENDED: {
-    label: 'Bitti',
+    label: 'Ended',
     color: colors.gameStatus.ended,
     bgColor: `${colors.gameStatus.ended}20`,
     icon: '✓',

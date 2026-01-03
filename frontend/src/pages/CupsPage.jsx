@@ -52,7 +52,7 @@ function CupsPage() {
   const handleCreateCup = async (e) => {
     e.preventDefault()
     if (!newCupName || selectedTeamIds.length < 2) {
-      alert('En az 2 takım seçmelisiniz!')
+      alert('You must select at least 2 teams!')
       return
     }
 
@@ -64,54 +64,54 @@ function CupsPage() {
   }
 
   if (loading) {
-    return <Loader text="Turnuvalar yükleniyor..." />
+    return <Loader text="Loading tournaments..." />
   }
 
   return (
     <div>
       <div className="page-header flex justify-between items-center">
         <div>
-          <h1 className="page-title">Turnuvalar</h1>
-          <p className="page-subtitle">Lig, kupa ve grup turnuvalarını yönet</p>
+          <h1 className="page-title">Tournaments</h1>
+          <p className="page-subtitle">Manage league, cup and group tournaments</p>
         </div>
         <button className="btn btn-primary" onClick={toggleForm}>
           <Plus size={18} />
-          Yeni Turnuva
+          New Tournament
         </button>
       </div>
 
       {showForm && (
         <div className="card mb-4">
-          <h3 className="card-title mb-4">Yeni Turnuva Oluştur</h3>
+          <h3 className="card-title mb-4">Create New Tournament</h3>
           <form onSubmit={handleCreateCup}>
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label">Turnuva Adı</label>
+                <label className="form-label">Tournament Name</label>
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="örn: Süper Lig 2024-25"
+                  placeholder="e.g. Premier League 2024-25"
                   value={newCupName}
                   onChange={(e) => setNewCupName(e.target.value)}
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Turnuva Türü</label>
+                <label className="form-label">Tournament Type</label>
                 <select
                   className="form-select"
                   value={cupType}
                   onChange={(e) => setCupType(e.target.value)}
                 >
-                  <option value="LEAGUE">Lig (Round Robin)</option>
-                  <option value="ELIMINATION">Eleme (Knockout)</option>
-                  <option value="GROUP">Grup + Playoff</option>
+                  <option value="LEAGUE">League (Round Robin)</option>
+                  <option value="ELIMINATION">Elimination (Knockout)</option>
+                  <option value="GROUP">Group + Playoff</option>
                 </select>
               </div>
             </div>
 
             <div className="form-group">
               <label className="form-label">
-                Takımlar ({selectedTeamIds.length} seçili)
+                Teams ({selectedTeamIds.length} selected)
               </label>
               <div className="flex gap-2" style={{ flexWrap: 'wrap' }}>
                 {teams.map((team) => (
@@ -130,19 +130,19 @@ function CupsPage() {
             </div>
 
             <button type="submit" className="btn btn-success">
-              Turnuva Oluştur
+              Create Tournament
             </button>
           </form>
         </div>
       )}
 
       <div className="card">
-        <h3 className="card-title mb-4">Turnuvalar ({cups.length})</h3>
+        <h3 className="card-title mb-4">Tournaments ({cups.length})</h3>
 
         {cups.length === 0 ? (
           <div className="empty-state">
             <Trophy size={48} />
-            <p>Henüz turnuva yok</p>
+            <p>No tournaments yet</p>
           </div>
         ) : (
           <div className="grid grid-3">
@@ -165,7 +165,7 @@ function CupsPage() {
                 <div className="flex gap-2 items-center">
                   <TypeBadge type={cup.type} />
                   <span className="text-muted" style={{ fontSize: '13px' }}>
-                    {cup.teams.length} takım • {cup.gameCount} maç
+                    {cup.teams.length} teams • {cup.gameCount} games
                   </span>
                 </div>
               </div>

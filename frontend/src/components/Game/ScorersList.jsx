@@ -9,7 +9,7 @@ function ScorersList({ scorers = [] }) {
       {scorers.map((scorer, idx) => (
         <div key={`${scorer?.player}-${scorer?.minute}-${idx}`} style={styles.scorer}>
           <span style={styles.icon}>⚽</span>
-          <span style={styles.player}>{scorer?.player ?? 'Bilinmeyen'}</span>
+          <span style={styles.player}>{scorer?.player ?? 'Unknown'}</span>
           {scorer?.minute && (
             <span style={styles.minute}>{scorer.minute}'</span>
           )}

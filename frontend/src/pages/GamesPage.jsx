@@ -38,7 +38,7 @@ function GamesPage() {
     e.preventDefault()
     if (!newGame.homeId || !newGame.awayId) return
     if (newGame.homeId === newGame.awayId) {
-      alert('Aynı takımı seçemezsiniz!')
+      alert('You cannot select the same team!')
       return
     }
 
@@ -48,8 +48,8 @@ function GamesPage() {
       toggleForm()
       reload()
     } catch (error) {
-      console.error('Maç oluşturulurken hata:', error)
-      alert('Maç oluşturulamadı')
+      console.error('Error creating game:', error)
+      alert('Could not create game')
     }
   }
 
@@ -58,7 +58,7 @@ function GamesPage() {
       await actionFn(id)
       reload()
     } catch (error) {
-      console.error('İşlem hatası:', error)
+      console.error('Action error:', error)
     }
   }
 
@@ -72,50 +72,50 @@ function GamesPage() {
       await gameApi.score(gameId, side, playerName, 1)
       reload()
     } catch (error) {
-      console.error('Gol kaydedilirken hata:', error)
+      console.error('Error recording goal:', error)
     }
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Maçı silmek istediğinize emin misiniz?')) return
+    if (!confirm('Are you sure you want to delete this game?')) return
     try {
       await gameApi.delete(id)
       reload()
     } catch (error) {
-      console.error('Maç silinirken hata:', error)
+      console.error('Error deleting game:', error)
     }
   }
 
   if (loading) {
-    return <Loader text="Maçlar yükleniyor..." />
+    return <Loader text="Loading games..." />
   }
 
   return (
     <div>
       <div className="page-header flex justify-between items-center">
         <div>
-          <h1 className="page-title">Maçlar</h1>
-          <p className="page-subtitle">Maçları yönet ve skorları takip et</p>
+          <h1 className="page-title">Games</h1>
+          <p className="page-subtitle">Manage games and track scores</p>
         </div>
         <button className="btn btn-primary" onClick={toggleForm}>
           <Plus size={18} />
-          Yeni Maç
+          New Game
         </button>
       </div>
 
       {showForm && (
         <div className="card mb-4">
-          <h3 className="card-title mb-4">Yeni Maç Oluştur</h3>
+          <h3 className="card-title mb-4">Create New Game</h3>
           <form onSubmit={handleCreateGame}>
             <div className="form-row">
               <div className="form-group">
-                <label className="form-label">Ev Sahibi</label>
+                <label className="form-label">Home Team</label>
                 <select
                   className="form-select"
                   value={newGame.homeId}
                   onChange={(e) => updateField('homeId', e.target.value)}
                 >
-                  <option value="">Takım seçin...</option>
+                  <option value="">Select team...</option>
                   {teams.map((team) => (
                     <option key={team.id} value={team.id}>
                       {team.name}
@@ -125,13 +125,13 @@ function GamesPage() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Deplasman</label>
+                <label className="form-label">Away Team</label>
                 <select
                   className="form-select"
                   value={newGame.awayId}
                   onChange={(e) => updateField('awayId', e.target.value)}
                 >
-                  <option value="">Takım seçin...</option>
+                  <option value="">Select team...</option>
                   {teams.map((team) => (
                     <option key={team.id} value={team.id}>
                       {team.name}
@@ -142,7 +142,7 @@ function GamesPage() {
 
               <div className="form-group" style={{ alignSelf: 'flex-end' }}>
                 <button type="submit" className="btn btn-success">
-                  Oluştur
+                  Create
                 </button>
               </div>
             </div>
@@ -153,7 +153,7 @@ function GamesPage() {
       {games.length === 0 ? (
         <div className="card">
           <div className="empty-state">
-            <p>Henüz maç yok</p>
+            <p>No games yet</p>
           </div>
         </div>
       ) : (

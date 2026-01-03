@@ -40,16 +40,16 @@ function GoalDropdown({ players = [], onScore, side, disabled = false }) {
         type="button"
       >
         <Target size={16} />
-        <span>Gol</span>
+        <span>Goal</span>
       </button>
 
       {isOpen && (
         <div style={styles.menu}>
-          <div style={styles.menuHeader}>Gol Atan Oyuncu</div>
+          <div style={styles.menuHeader}>Goal Scorer</div>
 
           {players.length === 0 ? (
             <div style={{ ...styles.menuItem, ...styles.menuItemDisabled }}>
-              Oyuncu yok
+              No players
             </div>
           ) : (
             players.map((player) => (
@@ -72,7 +72,7 @@ function GoalDropdown({ players = [], onScore, side, disabled = false }) {
           <div style={styles.menuDivider} />
           <div
             style={styles.menuItem}
-            onClick={() => handleSelectPlayer('Bilinmeyen')}
+            onClick={() => handleSelectPlayer('Unknown')}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = colors.background.tertiary
             }}
@@ -80,7 +80,7 @@ function GoalDropdown({ players = [], onScore, side, disabled = false }) {
               e.currentTarget.style.background = 'transparent'
             }}
           >
-            🤷 Diğer / Kendi Kale
+            🤷 Other / Own Goal
           </div>
         </div>
       )}

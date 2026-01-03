@@ -15,10 +15,10 @@ function SideNav({ onToggle }) {
   }
 
   const navItems = [
-    { to: '/live', icon: Radio, label: 'Canlı Skorlar' },
-    { to: '/teams', icon: Users, label: 'Takımlar' },
-    { to: '/games', icon: Gamepad2, label: 'Maçlar' },
-    { to: '/cups', icon: Award, label: 'Turnuvalar' },
+    { to: '/live', icon: Radio, label: 'Live Scores' },
+    { to: '/teams', icon: Users, label: 'Teams' },
+    { to: '/games', icon: Gamepad2, label: 'Games' },
+    { to: '/cups', icon: Award, label: 'Tournaments' },
   ]
 
   return (

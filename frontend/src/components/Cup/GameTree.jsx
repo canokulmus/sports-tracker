@@ -70,10 +70,10 @@ function GroupStage({ groups }) {
 
   return (
     <div style={styles.groupStage}>
-      <h3 style={styles.sectionTitle}>Grup Aşaması</h3>
+      <h3 style={styles.sectionTitle}>Group Stage</h3>
       {groupNames.map((groupName) => (
         <div key={groupName} style={styles.groupSection}>
-          <h4 style={styles.groupTitle}>Grup {groupName}</h4>
+          <h4 style={styles.groupTitle}>Group {groupName}</h4>
           <div style={styles.groupMatches}>
             {groups[groupName].map((match) => (
               <BracketMatch key={match.game_id} match={match} />
@@ -89,7 +89,7 @@ function GameTree({ gameTree, cupType }) {
   if (!gameTree) {
     return (
       <div style={styles.empty}>
-        <p>GameTree verisi bulunamadı</p>
+        <p>GameTree data not found</p>
       </div>
     )
   }
@@ -102,7 +102,7 @@ function GameTree({ gameTree, cupType }) {
 
         {gameTree.Playoffs && Object.keys(gameTree.Playoffs).length > 0 && (
           <div style={styles.playoffSection}>
-            <h3 style={styles.sectionTitle}>Playoff Aşaması</h3>
+            <h3 style={styles.sectionTitle}>Playoff Stage</h3>
             <EliminationBracket gameTree={gameTree.Playoffs} />
           </div>
         )}

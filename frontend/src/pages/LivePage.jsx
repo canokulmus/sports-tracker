@@ -14,7 +14,7 @@ function LivePage() {
   const { data: games, loading } = useMockData(fetchLiveGames)
 
   if (loading) {
-    return <Loader text="Canlı maçlar yükleniyor..." />
+    return <Loader text="Loading live games..." />
   }
 
   return (
@@ -23,10 +23,10 @@ function LivePage() {
       <div className="page-header">
         <div style={styles.titleContainer}>
           <Radio size={32} style={{ color: colors.state.danger }} />
-          <h1 className="page-title">Canlı Skorlar</h1>
+          <h1 className="page-title">Live Scores</h1>
         </div>
         <p className="page-subtitle">
-          Şu anda devam eden maçları anlık takip edin
+          Track ongoing games in real-time
         </p>
       </div>
 
@@ -35,11 +35,11 @@ function LivePage() {
         <div style={styles.statsContent}>
           <div style={styles.liveDot} />
           <div style={styles.statsText}>
-            <strong style={styles.statsCount}>{games?.length ?? 0}</strong> canlı maç
+            <strong style={styles.statsCount}>{games?.length ?? 0}</strong> live games
           </div>
           <div style={styles.statsDivider}>•</div>
           <div style={styles.statsInfo}>
-            WebSocket ile real-time güncellemeler yakında
+            Real-time updates with WebSocket coming soon
           </div>
         </div>
       </div>
@@ -49,9 +49,9 @@ function LivePage() {
         <div className="card" style={styles.emptyCard}>
           <div className="empty-state">
             <Radio size={64} style={{ opacity: 0.3, color: colors.text.muted }} />
-            <h3 style={styles.emptyTitle}>Şu anda canlı maç yok</h3>
+            <h3 style={styles.emptyTitle}>No live games right now</h3>
             <p className="text-muted">
-              Maçlar başladığında burada görünecek
+              Games will appear here when they start
             </p>
           </div>
         </div>
@@ -70,7 +70,7 @@ function LivePage() {
       {/* Footer Info */}
       <div className="card mt-4" style={styles.footerCard}>
         <div style={styles.footerText}>
-          💡 Maçları yönetmek için <strong>Maçlar</strong> sayfasını kullanın.
+          💡 Use the <strong>Games</strong> page to manage games.
         </div>
       </div>
     </div>

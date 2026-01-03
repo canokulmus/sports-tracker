@@ -22,7 +22,7 @@ function TeamsPage() {
   }
 
   const handleDeleteTeam = async (id) => {
-    if (!confirm('Takımı silmek istediğinize emin misiniz?')) return
+    if (!confirm('Are you sure you want to delete this team?')) return
     await teamApi.delete(id)
     reload()
   }
@@ -67,14 +67,14 @@ function TeamsPage() {
   }
 
   if (loading) {
-    return <Loader text="Takımlar yükleniyor..." />
+    return <Loader text="Loading teams..." />
   }
 
   return (
     <div>
       <div className="page-header">
-        <h1 className="page-title">Takımlar</h1>
-        <p className="page-subtitle">Takımları yönet ve oyuncu ekle</p>
+        <h1 className="page-title">Teams</h1>
+        <p className="page-subtitle">Manage teams and add players</p>
       </div>
 
       <div className="grid grid-2">
@@ -84,32 +84,32 @@ function TeamsPage() {
               <input
                 type="text"
                 className="form-input"
-                placeholder="Yeni takım adı..."
+                placeholder="New team name..."
                 value={newTeamName}
                 onChange={(e) => setNewTeamName(e.target.value)}
               />
               <button type="submit" className="btn btn-primary">
                 <Plus size={18} />
-                Ekle
+                Add
               </button>
             </form>
           </div>
 
           <div className="card">
-            <h3 className="card-title mb-4">Tüm Takımlar ({teams?.length ?? 0})</h3>
+            <h3 className="card-title mb-4">All Teams ({teams?.length ?? 0})</h3>
 
             {!teams || teams.length === 0 ? (
               <div className="empty-state">
-                <p>Henüz takım yok</p>
+                <p>No teams yet</p>
               </div>
             ) : (
               <table className="table">
                 <thead>
                   <tr>
                     <th>ID</th>
-                    <th>Takım Adı</th>
-                    <th>Oyuncu</th>
-                    <th>Özel Alanlar</th>
+                    <th>Team Name</th>
+                    <th>Players</th>
+                    <th>Custom Fields</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -181,7 +181,7 @@ function TeamsPage() {
                     <input
                       type="text"
                       className="form-input"
-                      placeholder="Oyuncu adı"
+                      placeholder="Player name"
                       value={newPlayer.name}
                       onChange={(e) => updateField('name', e.target.value)}
                     />
@@ -190,27 +190,27 @@ function TeamsPage() {
                     <input
                       type="number"
                       className="form-input"
-                      placeholder="Forma No"
+                      placeholder="Jersey No"
                       value={newPlayer.no}
                       onChange={(e) => updateField('no', e.target.value)}
                     />
                   </div>
                   <button type="submit" className="btn btn-success">
                     <UserPlus size={18} />
-                    <span className="ml-2">Oyuncu Ekle</span>
+                    <span className="ml-2">Add Player</span>
                   </button>
                 </div>
               </form>
 
-              <h4 className="text-muted mb-4">Kadro</h4>
+              <h4 className="text-muted mb-4">Squad</h4>
               {Object.keys(selectedTeam.players).length === 0 ? (
-                <p className="text-muted">Henüz oyuncu yok</p>
+                <p className="text-muted">No players yet</p>
               ) : (
                 <table className="table">
                   <thead>
                     <tr>
                       <th>No</th>
-                      <th>İsim</th>
+                      <th>Name</th>
                       <th></th>
                     </tr>
                   </thead>
@@ -245,7 +245,7 @@ function TeamsPage() {
             <div className="card">
               <div className="empty-state">
                 <Users size={48} className="empty-state-icon" />
-                <p>Detayları görmek için bir takım seçin</p>
+                <p>Select a team to view details</p>
               </div>
             </div>
           )}

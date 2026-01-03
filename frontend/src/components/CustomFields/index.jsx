@@ -21,7 +21,7 @@ function CustomFieldsManager({ fields = {}, onAddField, onDeleteField }) {
     <div style={styles.container}>
       <div style={styles.header}>
         <Tag size={18} style={{ color: colors.ui.info }} />
-        <h4 style={styles.title}>Özel Alanlar</h4>
+        <h4 style={styles.title}>Custom Fields</h4>
       </div>
 
       <form onSubmit={handleSubmit} style={styles.form}>
@@ -29,7 +29,7 @@ function CustomFieldsManager({ fields = {}, onAddField, onDeleteField }) {
           <input
             type="text"
             className="form-input"
-            placeholder="Alan adı (örn: city)"
+            placeholder="Field name (e.g. city)"
             value={newField.key}
             onChange={(e) => setNewField({ ...newField, key: e.target.value })}
             style={styles.input}
@@ -37,7 +37,7 @@ function CustomFieldsManager({ fields = {}, onAddField, onDeleteField }) {
           <input
             type="text"
             className="form-input"
-            placeholder="Değer (örn: Istanbul)"
+            placeholder="Value (e.g. Istanbul)"
             value={newField.value}
             onChange={(e) => setNewField({ ...newField, value: e.target.value })}
             style={styles.input}
@@ -49,7 +49,7 @@ function CustomFieldsManager({ fields = {}, onAddField, onDeleteField }) {
       </form>
 
       {fieldEntries.length === 0 ? (
-        <p style={styles.emptyText}>Henüz özel alan eklenmemiş</p>
+        <p style={styles.emptyText}>No custom fields added yet</p>
       ) : (
         <div style={styles.fieldsList}>
           {fieldEntries.map(([key, value]) => (

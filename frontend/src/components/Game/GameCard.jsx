@@ -22,7 +22,7 @@ function GameCard({
     return (
       <div style={styles.card}>
         <div className="empty-state">
-          <p>Maç bilgisi bulunamadı</p>
+          <p>Game information not found</p>
         </div>
       </div>
     )
@@ -37,8 +37,8 @@ function GameCard({
     scorers = { home: [], away: [] },
   } = game
 
-  const homeName = home?.name ?? 'Ev Sahibi'
-  const awayName = away?.name ?? 'Deplasman'
+  const homeName = home?.name ?? 'Home'
+  const awayName = away?.name ?? 'Away'
   const homeScore = score?.home ?? 0
   const awayScore = score?.away ?? 0
   const homeScorers = scorers?.home ?? []
@@ -160,7 +160,7 @@ function GameCard({
               type="button"
             >
               <Play size={18} />
-              <span>Başlat</span>
+              <span>Start</span>
             </button>
           )}
 
@@ -173,7 +173,7 @@ function GameCard({
                   type="button"
                 >
                   <Pause size={18} />
-                  <span>Duraklat</span>
+                  <span>Pause</span>
                 </button>
               )}
               {onEnd && (
@@ -183,7 +183,7 @@ function GameCard({
                   type="button"
                 >
                   <Square size={18} />
-                  <span>Bitir</span>
+                  <span>End</span>
                 </button>
               )}
             </>
@@ -198,7 +198,7 @@ function GameCard({
                   type="button"
                 >
                   <Play size={18} />
-                  <span>Devam Et</span>
+                  <span>Resume</span>
                 </button>
               )}
               {onEnd && (
@@ -208,7 +208,7 @@ function GameCard({
                   type="button"
                 >
                   <Square size={18} />
-                  <span>Bitir</span>
+                  <span>End</span>
                 </button>
               )}
             </>
