@@ -62,6 +62,7 @@ function LivePage() {
               key={game.id}
               game={game}
               variant="live"
+              showWatchButton={true}
             />
           ))}
         </div>

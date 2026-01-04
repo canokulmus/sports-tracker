@@ -291,3 +291,96 @@ export const liveApi = {
     return games.filter((g) => g.state === "RUNNING" || g.state === "PAUSED");
   },
 };
+
+// ==========================================
+// WATCH API (Observer Pattern - Mock)
+// ==========================================
+const watchedGames = new Set();
+const watchCallbacks = new Map();
+
+export const watchApi = {
+  watch: async (gameId, callback) => {
+    await delay(100);
+    watchedGames.add(gameId);
+
+    if (callback) {
+      if (!watchCallbacks.has(gameId)) {
+        watchCallbacks.set(gameId, []);
+      }
+      watchCallbacks.get(gameId).push(callback);
+    }
+
+    return { success: true, gameId };
+  },
+
+  unwatch: async (gameId) => {
+    await delay(100);
+    watchedGames.delete(gameId);
+    watchCallbacks.delete(gameId);
+    return { success: true, gameId };
+  },
+
+  getWatchedGames: async () => {
+    await delay(100);
+    return Array.from(watchedGames);
+  },
+
+  isWatching: async (gameId) => {
+    await delay(50);
+    return watchedGames.has(gameId);
+  },
+
+  notifyWatchers: (gameId, event) => {
+    const callbacks = watchCallbacks.get(gameId);
+    if (callbacks && callbacks.length > 0) {
+      callbacks.forEach(cb => cb(event));
+    }
+  },
+};
+
+export function simulateGameUpdate(gameId, updateType = 'score') {
+  const game = games.find((g) => g.id === gameId);
+
+  // Check localStorage for watched games instead of internal Set
+  const watchedGamesFromStorage = JSON.parse(localStorage.getItem('watchedGames') || '[]');
+
+  if (!game) {
+    console.log('[Simulate Update] Game not found:', gameId);
+    return;
+  }
+
+  if (!watchedGamesFromStorage.includes(gameId)) {
+    console.log('[Simulate Update] Game not being watched:', gameId);
+    return;
+  }
+
+  if (game.state !== 'RUNNING' && game.state !== 'PAUSED') {
+    console.log('[Simulate Update] Skipping - game not live:', gameId, 'State:', game.state);
+    return;
+  }
+
+  const event = {
+    gameId,
+    type: updateType,
+    timestamp: new Date().toISOString(),
+    game: { ...game },
+  };
+
+  if (updateType === 'score' && game.state === 'RUNNING') {
+    const side = Math.random() > 0.5 ? 'home' : 'away';
+    game.score[side] += 1;
+    event.side = side;
+    event.score = { ...game.score };
+    console.log('[Simulate Update] Score updated:', gameId, event.score);
+  } else if (updateType === 'state') {
+    event.oldState = game.state;
+    event.newState = game.state === 'RUNNING' ? 'PAUSED' : 'RUNNING';
+    game.state = event.newState;
+    console.log('[Simulate Update] State changed:', gameId, event.oldState, '->', event.newState);
+  } else {
+    return;
+  }
+
+  watchApi.notifyWatchers(gameId, event);
+  return event;
+}

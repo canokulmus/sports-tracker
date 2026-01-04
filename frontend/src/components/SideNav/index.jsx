@@ -1,9 +1,10 @@
 // src/components/SideNav/index.jsx
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Trophy, Users, Gamepad2, Award, Radio, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { Trophy, Users, Gamepad2, Award, Radio, Eye, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { colors } from '../../styles/colors'
 import { useMediaQuery, mediaQueries } from '../../utils/responsive'
+import { useWatch } from '../../context/WatchContext'
 import './SideNav.css'
 
 const SideNav = forwardRef(({ onToggle }, ref) => {
@@ -41,8 +42,11 @@ const SideNav = forwardRef(({ onToggle }, ref) => {
     }
   }))
 
+  const { watchedGames } = useWatch()
+
   const navItems = [
     { to: '/live', icon: Radio, label: 'Live Scores' },
+    { to: '/watched', icon: Eye, label: 'Watched', badge: watchedGames.length },
     { to: '/teams', icon: Users, label: 'Teams' },
     { to: '/games', icon: Gamepad2, label: 'Games' },
     { to: '/cups', icon: Award, label: 'Tournaments' },
@@ -97,6 +101,9 @@ const SideNav = forwardRef(({ onToggle }, ref) => {
                 >
                   <item.icon size={20} />
                   {(!isCollapsed || isMobile) && <span>{item.label}</span>}
+                  {item.badge > 0 && (
+                    <span className="nav-badge">{item.badge}</span>
+                  )}
                 </NavLink>
               </li>
             ))}

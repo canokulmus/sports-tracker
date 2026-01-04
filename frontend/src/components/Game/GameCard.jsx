@@ -3,14 +3,17 @@ import { Play, Pause, Square, Trash2, Circle } from 'lucide-react'
 import StatusBadge from './StatusBadge'
 import ScorersList from './ScorersList'
 import GoalDropdown from './GoalDropdown'
+import { WatchButton } from '../WatchButton'
 import { colors } from '../../styles/colors'
 import { useMediaQuery, mediaQueries } from '../../utils/responsive'
+import { useWatch } from '../../context/WatchContext'
 
 function GameCard({
   game,
   players = { home: [], away: [] },
   showControls = false,
   showDeleteButton = false,
+  showWatchButton = false,
   onStart,
   onPause,
   onResume,
@@ -20,6 +23,8 @@ function GameCard({
   variant = 'default',
 }) {
   const isMobile = useMediaQuery(mediaQueries.mobile)
+  const { isWatching } = useWatch()
+  const watching = isWatching(game?.id)
 
   if (!game) {
     return (
@@ -106,10 +111,19 @@ function GameCard({
             />
           )}
           <StatusBadge state={state} />
+          {watching && (
+            <div style={styles.watchIndicator}>
+              <Circle size={6} fill={colors.brand.primary} color={colors.brand.primary} />
+              <span style={styles.watchText}>Watching</span>
+            </div>
+          )}
         </div>
 
         <div style={styles.headerRight}>
           <span style={styles.matchId}>#{id}</span>
+          {showWatchButton && (
+            <WatchButton gameId={id} variant="icon-only" showLabel={false} />
+          )}
           {showDeleteButton && onDelete && (
             <button
               className="btn btn-danger btn-sm"
@@ -340,6 +354,20 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
+  },
+  watchIndicator: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '4px 10px',
+    borderRadius: '12px',
+    background: `${colors.brand.primary}10`,
+    border: `1px solid ${colors.brand.primary}30`,
+  },
+  watchText: {
+    fontSize: '12px',
+    fontWeight: '500',
+    color: colors.brand.primary,
   },
   matchId: {
     fontSize: '14px',

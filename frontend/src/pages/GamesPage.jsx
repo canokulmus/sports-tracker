@@ -162,6 +162,7 @@ function GamesPage() {
               players={gamePlayers[game?.id] ?? { home: [], away: [] }}
               showControls={true}
               showDeleteButton={true}
+              showWatchButton={true}
               onStart={startGame}
               onPause={pauseGame}
               onResume={resumeGame}

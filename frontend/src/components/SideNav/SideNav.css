@@ -107,6 +107,33 @@
   color: white;
 }
 
+.nav-badge {
+  margin-left: auto;
+  background-color: var(--accent);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  min-width: 20px;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.nav-link.active .nav-badge {
+  background-color: white;
+  color: var(--accent);
+}
+
+.sidebar.collapsed .nav-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  min-width: 18px;
+  padding: 2px 6px;
+  font-size: 0.65rem;
+}
+
 .status-wrapper {
   margin-top: auto;
   padding-top: 20px;
