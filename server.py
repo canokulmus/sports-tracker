@@ -155,6 +155,18 @@ class Session:
                     repository.attach(tid, self.user)
                     self.attached_ids.append(tid)
                 return {"status": "OK", "id": tid, "message": "Team created"}
+            
+            elif cmd == "UPDATE_TEAM":
+                tid = req.get("id")
+                if tid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+                
+                updates = {k: v for k, v in req.items() if k not in ["command", "id"]}
+                with repo_lock:
+                    obj = repository._objects.get(int(tid))
+                    if obj and isinstance(obj['instance'], Team):
+                        obj['instance'].update(**updates)
+                        return {"status": "OK", "message": f"Team {tid} updated"}
+                    return {"status": "ERROR", "message": "Team not found"}
 
             elif cmd == "ADD_PLAYER":
                 tid = req.get("team_id")
@@ -200,6 +212,34 @@ class Session:
                         datetime=datetime.now()
                     )
                 return {"status": "OK", "id": gid, "message": "Game created"}
+            
+            elif cmd == "UPDATE_GAME":
+                gid = req.get("id")
+                if gid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+                
+                updates = {k: v for k, v in req.items() if k not in ["command", "id"]}
+                
+                # Handle datetime conversion if present
+                if "datetime" in updates:
+                    try:
+                        updates["datetime"] = datetime.fromisoformat(updates["datetime"])
+                    except ValueError:
+                        return {"status": "ERROR", "message": "Invalid datetime format (use ISO)"}
+
+                with repo_lock:
+                    # Resolve team IDs to objects if provided
+                    if "home_id" in updates:
+                        h_data = repository._objects.get(int(updates.pop("home_id")))
+                        if h_data: updates["home"] = h_data["instance"]
+                    if "away_id" in updates:
+                        a_data = repository._objects.get(int(updates.pop("away_id")))
+                        if a_data: updates["away"] = a_data["instance"]
+
+                    game = self.find_game(int(gid))
+                    if game:
+                        game.update(**updates)
+                        return {"status": "OK", "message": f"Game {gid} updated"}
+                    return {"status": "ERROR", "message": "Game not found"}
 
             elif cmd == "WATCH":
                 oid = req.get("id")
@@ -283,6 +323,7 @@ class Session:
                 gid = req.get("id")
                 pts = req.get("points")
                 side = req.get("side", "").upper()
+                player = req.get("player")
                 if gid is None or pts is None or side not in ["HOME", "AWAY"]:
                     return {"status": "ERROR", "message": "Invalid params"}
 
@@ -290,7 +331,7 @@ class Session:
                     game = self.find_game(int(gid))
                     if game:
                         team_obj = game.home() if side == "HOME" else game.away()
-                        game.score(int(pts), team_obj)
+                        game.score(int(pts), team_obj, player=player)
                         return {
                             "status": "OK", 
                             "message": f"Score updated: {game.home().team_name} {game.home_score} - {game.away_score} {game.away().team_name}"

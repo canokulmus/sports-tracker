@@ -107,6 +107,16 @@ def parse_input_to_json(text):
             print("Usage: CREATE_TEAM <name>")
             return None
         payload["name"] = " ".join(args)
+    
+    elif cmd == "UPDATE_TEAM":
+        if len(args) < 2:
+            print("Usage: UPDATE_TEAM <id> <key>=<value> ...")
+            return None
+        payload["id"] = args[0]
+        for item in args[1:]:
+            if "=" in item:
+                k, v = item.split("=", 1)
+                payload[k] = v
 
     elif cmd == "CREATE_GAME":
         if len(args) < 2:
@@ -114,6 +124,16 @@ def parse_input_to_json(text):
             return None
         payload["home_id"] = args[0]
         payload["away_id"] = args[1]
+    
+    elif cmd == "UPDATE_GAME":
+        if len(args) < 2:
+            print("Usage: UPDATE_GAME <id> <key>=<value> ...")
+            return None
+        payload["id"] = args[0]
+        for item in args[1:]:
+            if "=" in item:
+                k, v = item.split("=", 1)
+                payload[k] = v
 
     elif cmd == "CREATE_CUP":
         if len(args) < 3:
@@ -156,11 +176,13 @@ def parse_input_to_json(text):
 
     elif cmd == "SCORE":
         if len(args) < 3:
-            print("Usage: SCORE <id> <points> <HOME/AWAY>")
+            print("Usage: SCORE <id> <points> <HOME/AWAY> [player_name]")
             return None
         payload["id"] = args[0]
         payload["points"] = args[1]
         payload["side"] = args[2].upper()
+        if len(args) > 3:
+            payload["player"] = " ".join(args[3:])
 
     elif cmd == "GET_STANDINGS":
         if len(args) < 1:
@@ -208,11 +230,13 @@ def main():
     print("Connected to Sports Tracker. Available commands:")
     print("  USER <name>")
     print("  CREATE_TEAM <name>")
+    print("  UPDATE_TEAM <id> <key>=<value> ...")
     print("  CREATE_GAME <home_id> <away_id>")
+    print("  UPDATE_GAME <id> <key>=<value> ...")
     print("  CREATE_CUP <type> <id1> <id2> ...")
     print("  WATCH <id>")
     print("  START <id>")
-    print("  SCORE <id> <points> <HOME/AWAY>")
+    print("  SCORE <id> <points> <HOME/AWAY> [player]")
     print("  PAUSE <id>")
     print("  RESUME <id>")
     print("  END <id>")
