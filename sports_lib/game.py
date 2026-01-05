@@ -290,3 +290,14 @@ class Game:
     def getid(self) -> int:
         """Returns the unique identifier for the game."""
         return self.id_
+
+    # For pickle
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state["_observers"] = []
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        if "_observers" not in self.__dict__:
+            self._observers = []

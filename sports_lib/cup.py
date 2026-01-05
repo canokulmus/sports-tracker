@@ -91,6 +91,12 @@ class Cup:
         if "_observers" not in self.__dict__:
             self._observers = []
 
+        # Since Game observers are wiped on load, the Cup (which watches games in Group tournaments to trigger playoffs) needs to re-subscribe itself when the server restarts.
+        
+        if self.cup_type in [CupType.GROUP, CupType.GROUP2]:
+            for game in self.games:
+                game.watch(self)
+
     def __str__(self) -> str:
         """Returns a human-readable summary of the cup."""
         return f"Cup Tournament: {self.cup_type} with {len(self.teams)} teams, {len(self.games)} games"
