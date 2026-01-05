@@ -66,6 +66,13 @@ class Cup:
 
     def delete(self) -> None:
         """Deletes the cup and cleans up resources."""
+        # Cascade deletion to the repository for managed games
+        if self.repo:
+            for game in list(self.games):
+                try:
+                    self.repo.delete(game.id())
+                except (ValueError, KeyError):
+                    pass
         self.games.clear()
         self.rounds.clear()
         self.groups.clear()

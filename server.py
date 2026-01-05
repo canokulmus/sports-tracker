@@ -80,24 +80,12 @@ class Session:
     def find_game(self, game_id: int):
         """Find a game by ID in repository or cups.
         
-        First checks the repository directly for standalone games.
-        Then searches through all cups to find games that are part of tournaments.
+        If the system is consistent, all games (standalone or cup-managed)
+        should be registered in the central repository._objects.
         """
-        # Check if game exists directly in repository
         obj = repository._objects.get(game_id, {}).get('instance')
         if isinstance(obj, Game):
             return obj
-        
-        # Search through all cups
-        for obj_data in repository._objects.values():
-            instance = obj_data['instance']
-            if isinstance(instance, Cup):
-                try:
-                    # Use Cup's __getitem__ to find game by ID
-                    return instance[game_id]
-                except KeyError:
-                    # Game not in this cup, continue searching
-                    continue
         
         # Game not found anywhere
         return None

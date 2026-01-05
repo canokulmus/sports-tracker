@@ -14,6 +14,7 @@ class Team:
         if not name:
             raise ValueError("Team name cannot be empty.")
         self.team_name = name
+        self.id_ = kwargs.pop("id_", -1)
         self.players: Dict[int, Dict[str, Any]] = {}
         self._player_id_counter = 0
         self._generic_attrs: Dict[str, Any] = {}
@@ -108,6 +109,9 @@ class Team:
         if "name" in kw:
             self.team_name = kw.pop("name")
 
+        # Protect the ID from being overwritten by generic updates
+        kw.pop("id_", None)
+
         for key, value in kw.items():
             self[key] = value
 
@@ -119,7 +123,7 @@ class Team:
 
     def getid(self) -> Any:
         """Returns the unique ID of the team if assigned by a Repo."""
-        return getattr(self, "id_", None)
+        return self.id_
 
 
 class PlaceholderTeam(Team):
