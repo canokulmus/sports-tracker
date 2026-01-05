@@ -169,6 +169,18 @@ class Session:
                         return {"status": "OK", "message": f"Player added with ID {pid}"}
                     return {"status": "ERROR", "message": "Team not found"}
 
+            elif cmd == "REMOVE_PLAYER":
+                tid = req.get("team_id")
+                pname = req.get("name")
+                if tid is None or not pname:
+                    return {"status": "ERROR", "message": "Missing 'team_id' or 'name'"}
+                with repo_lock:
+                    obj = repository._objects.get(int(tid))
+                    if obj and isinstance(obj['instance'], Team):
+                        obj['instance'].delplayer(pname)
+                        return {"status": "OK", "message": f"Player {pname} removed"}
+                    return {"status": "ERROR", "message": "Team not found"}
+
             elif cmd == "CREATE_GAME":
                 h_id = req.get("home_id")
                 a_id = req.get("away_id")
@@ -216,6 +228,15 @@ class Session:
 
                         return {"status": "OK", "message": f"Watching {oid}"}
                     return {"status": "ERROR", "message": "Object not watchable"}
+
+            elif cmd == "GET_GAME_STATS":
+                gid = req.get("id")
+                if gid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+                with repo_lock:
+                    game = self.find_game(int(gid))
+                    if game:
+                        return {"status": "OK", "stats": game.stats()}
+                    return {"status": "ERROR", "message": "Game not found"}
 
             elif cmd == "START":
                 gid = req.get("id")
@@ -292,23 +313,12 @@ class Session:
                         teams.append(obj_data['instance'])
 
                     try:
-                        # Manually create Cup to avoid 'type' parameter conflict in Repo.create
-                        cup = Cup(
+                        cid = repository.create(
+                            type="cup",
                             teams=teams,
                             cup_type=c_type,
                             interval=timedelta(days=1),
-                            repo=repository
                         )
-
-                        # Manually register in repository
-                        repository._last_id += 1
-                        cid = repository._last_id
-
-                        repository._objects[cid] = {
-                            "instance": cup,
-                            "attachment_count": 0,
-                            "users": []
-                        }
 
                         # Attach user to the new Cup
                         repository.attach(cid, self.user)
