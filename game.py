@@ -2,9 +2,9 @@ from datetime import datetime
 from time import monotonic
 from typing import Any, Dict, List, Tuple, Optional
 
-from .team import Team
-from .constants import GameState, GameSettings
-from .helpers import TimeHelper, PlayerHelper, ScoreHelper
+from sports_lib.team import Team
+from sports_lib.constants import GameState, GameSettings
+from sports_lib.helpers import TimeHelper, PlayerHelper, ScoreHelper
 
 
 class Game:

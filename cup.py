@@ -2,9 +2,9 @@
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timedelta
 from itertools import combinations
-from .constants import GameState, CupType
-from .game import Game
-from .team import Team, PlaceholderTeam
+from sports_lib.constants import GameState, CupType
+from sports_lib.game import Game
+from sports_lib.team import Team, PlaceholderTeam
 import random
 import string
 

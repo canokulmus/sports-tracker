@@ -1,8 +1,8 @@
 from typing import Any, Dict, List, Optional, Tuple, Set
 
-from .cup import Cup
-from .game import Game
-from .team import Team
+from sports_lib.cup import Cup
+from sports_lib.game import Game
+from sports_lib.team import Team
 
 
 class Repo:

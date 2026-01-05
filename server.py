@@ -1,31 +1,18 @@
-import socket
 import sys
 import threading
 import pickle
 import os
 import queue
 import json
+from datetime import datetime, timedelta
 from typing import Any, List, Dict, Tuple
+from websockets.sync.server import serve
+from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
 
-# This script implements a multithreaded TCP server for the Sports Tracker service,
-# as per the Phase 2 requirements.
-#
-# Architecture:
-# - A main thread listens for and accepts new TCP connections.
-# - For each client, a new `Session` thread is created to handle all communication.
-# - Communication is done via a JSON-based protocol over newline-delimited messages (NDJSON).
-# - A global `repository` object stores all shared data (teams, games, etc.).
-# - A `threading.RLock` is used to ensure thread-safe access to the shared repository.
-
-# Import Phase 1 classes
-from repo import Repo
-from game import Game
-from team import Team
-from cup import Cup
-from constants import GameState
+from sports_lib import Repo, Game, Team, Cup, GameState
 
 # --- Configuration & Globals ---
-HOST = ''  # Listen on all available interfaces.
+HOST = '0.0.0.0'  # Listen on all available interfaces.
 PORT = 8888
 SAVE_FILE = 'server_state.pkl'  # File for object persistence.
 
@@ -66,17 +53,14 @@ class SocketObserver:
             self.message_queue.put(json.dumps(error_payload))
 
 
-class Session(threading.Thread):
+class Session:
     """
-    Represents a single client session. Each session runs in its own thread.
-    It uses a two-thread model internally:
-    1. `run()`: The main thread for this session, blocking on `socket.readline()` to read commands.
-    2. `notification_agent()`: A background thread that sends queued messages to the client.
+    Represents a single client session.
+    In Phase 4, this class manages the state for a WebSocket connection.
     """
-    def __init__(self, client_socket: socket.socket, client_address: Tuple[str, int]):
-        super().__init__()
-        self.client_socket = client_socket
-        self.client_address = client_address
+    def __init__(self, websocket):
+        self.websocket = websocket
+        self.client_address = websocket.remote_address
         self.user = "Anonymous"  # Default user, can be changed with the USER command.
 
         # This queue is the bridge between the game logic (which calls observer.update)
@@ -88,6 +72,10 @@ class Session(threading.Thread):
         self.watched_ids: List[int] = []  # IDs of objects this session is watching.
         self.attached_ids: List[int] = [] # IDs of objects this session has interacted with.
         self.running = True
+
+        # Start the background thread for sending notifications.
+        self.agent_thread = threading.Thread(target=self.notification_agent, daemon=True)
+        self.agent_thread.start()
 
     def find_game(self, game_id: int):
         """Find a game by ID in repository or cups.
@@ -125,49 +113,13 @@ class Session(threading.Thread):
                 msg = self.output_queue.get()
                 if msg is None:  # A `None` message is a sentinel to stop the thread.
                     break
-                self.client_socket.sendall(f"{msg}\n".encode('utf-8'))
-            except (OSError, Exception):
+                # TODO: Learn - WebSockets are message-based, so we don't need '\n' delimiters anymore.
+                self.websocket.send(msg)
+            except (ConnectionClosedError, ConnectionClosedOK):
                 break # Stop if the socket is closed.
-
-    def run(self) -> None:
-        """Main loop for the client session. Handles command processing."""
-        print(f"Accepted connection from {self.client_address}")
-
-        # Start the background thread for sending notifications.
-        agent = threading.Thread(target=self.notification_agent, daemon=True)
-        agent.start()
-
-        # Wrap the socket in a file-like object for convenient line-by-line reading.
-        socket_file = self.client_socket.makefile('r', encoding='utf-8')
-
-        try:
-            welcome = {"type": "INFO", "message": "Connected to Sports Tracker (JSON Mode)"}
-            self.client_socket.sendall(f"{json.dumps(welcome)}\n".encode('utf-8'))
-
-            # Block and read commands line-by-line.
-            for line in socket_file:
-                line = line.strip()
-                if not line:
-                    continue
-
-                try:
-                    request = json.loads(line)
-                    response = self.process_command(request)
-                    if response:
-                        self.client_socket.sendall(f"{json.dumps(response)}\n".encode('utf-8'))
-                except json.JSONDecodeError:
-                    err = {"status": "ERROR", "message": "Invalid JSON format"}
-                    self.client_socket.sendall(f"{json.dumps(err)}\n".encode('utf-8'))
-
-        except (ConnectionResetError, OSError):
-            print(f"Connection lost from {self.client_address}")
-        finally:
-            # On disconnect, perform cleanup.
-            self.running = False
-            self.output_queue.put(None)  # Signal the notification agent to exit.
-            self.cleanup()
-            self.client_socket.close()
-            print(f"Session closed for {self.client_address}")
+            except Exception as e:
+                print(f"Notification error: {e}")
+                break
 
     def process_command(self, req: Dict[str, Any]) -> Dict[str, Any]:
         """Parses the JSON request and executes the corresponding action."""
@@ -177,6 +129,13 @@ class Session(threading.Thread):
             if cmd == "USER":
                 self.user = req.get("username", "Anonymous")
                 return {"status": "OK", "message": f"User set to {self.user}"}
+
+            # TODO: Frontend Helper - Your partner might need an endpoint to get all teams
+            # to populate a dropdown menu.
+            # elif cmd == "LIST_TEAMS":
+            #     with repo_lock:
+            #         teams = [{"id": k, "name": v['instance'].team_name} for k, v in repository._objects.items() if isinstance(v['instance'], Team)]
+            #     return {"status": "OK", "teams": teams}
 
             elif cmd == "CREATE_TEAM":
                 name = req.get("name")
@@ -200,7 +159,6 @@ class Session(threading.Thread):
                     if not h_data or not a_data:
                         return {"status": "ERROR", "message": "Teams not found"}
 
-                    from datetime import datetime
                     gid = repository.create(
                         type="game",
                         home=h_data['instance'],
@@ -303,10 +261,9 @@ class Session(threading.Thread):
 
                     try:
                         # Manually create Cup to avoid 'type' parameter conflict in Repo.create
-                        from datetime import timedelta
                         cup = Cup(
                             teams=teams,
-                            type=c_type,
+                            cup_type=c_type,
                             interval=timedelta(days=1),
                             repo=repository
                         )
@@ -437,6 +394,41 @@ class Session(threading.Thread):
                 if oid in repository._objects:
                     repository.detach(oid, self.user)
 
+def agent(websocket):
+    """
+    The main handler for a WebSocket connection.
+    This function is called in a new thread for each client by `server.serve`.
+    """
+    session = Session(websocket)
+    print(f"Accepted connection from {session.client_address}")
+
+    try:
+        # Send welcome message
+        welcome = {"type": "INFO", "message": "Connected to Sports Tracker (WebSocket Mode)"}
+        websocket.send(json.dumps(welcome))
+
+        # Loop for incoming messages
+        # TODO: Learn - 'for message in websocket' is a blocking loop that yields messages as they arrive.
+        for message in websocket:
+            try:
+                request = json.loads(message)
+                response = session.process_command(request)
+                if response:
+                    websocket.send(json.dumps(response))
+            except json.JSONDecodeError:
+                err = {"status": "ERROR", "message": "Invalid JSON format"}
+                websocket.send(json.dumps(err))
+
+    except (ConnectionClosedError, ConnectionClosedOK):
+        print(f"Connection closed normally for {session.client_address}")
+    except Exception as e:
+        print(f"Unexpected error for {session.client_address}: {e}")
+    finally:
+        # Cleanup
+        session.running = False
+        session.output_queue.put(None) # Signal notifier to stop
+        session.cleanup()
+        print(f"Session cleaned up for {session.client_address}")
 
 def load_state():
     """
@@ -477,21 +469,13 @@ def save_state():
 
 if __name__ == "__main__":
     load_state()
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.bind((HOST, PORT))
-    server.listen()
-    print(f"JSON Server listening on {HOST}:{PORT}...")
-
-    try:
-        # The main server loop. It does nothing but accept new connections
-        # and hand them off to a new `Session` thread.
-        while True:
-            client_socket, client_address = server.accept()
-            Session(client_socket, client_address).start()
-    except KeyboardInterrupt:
-        print("\nServer shutting down.")
-    finally:
-        # Ensure state is saved on shutdown.
-        save_state()
-        server.close()
+    
+    # TODO: Learn - This starts the WebSocket server. 'serve' creates a thread for each connection calling 'agent'.
+    print(f"WebSocket Server listening on {HOST}:{PORT}...")
+    with serve(agent, HOST, PORT) as server:
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            print("\nServer shutting down.")
+        finally:
+            save_state()

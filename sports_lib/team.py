@@ -9,13 +9,16 @@ class Team:
     - Added proper exception raising for error handling.
     """
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, **kwargs: Any) -> None:
         """Initializes a new Team with a given name."""
         if not name:
             raise ValueError("Team name cannot be empty.")
         self.team_name = name
-        self.players: Dict[str, Dict[str, int]] = {}
+        self.players: Dict[int, Dict[str, Any]] = {}
+        self._player_id_counter = 0
         self._generic_attrs: Dict[str, Any] = {}
+        for key, value in kwargs.items():
+            self[key] = value
 
     def __str__(self) -> str:
         """Returns the team's name for display purposes."""
@@ -58,27 +61,65 @@ class Team:
                 f"'{type(self).__name__}' object has no generic attribute '{key}' to delete."
             )
 
-    def addplayer(self, name: str, no: int) -> None:
+    def addplayer(self, name: str, no: int) -> int:
         """Adds or updates a player in the team's roster.
 
         Args:
             name: The name of the player.
             no: The jersey number.
+
+        Returns:
+            int: The unique ID assigned to the player.
         """
-        # Pylance Note: We rely on the API View to ensure 'no' is an int
-        # before calling this method, matching the type hint 'no: int'.
-        self.players[name] = {"no": no}
+        self._player_id_counter += 1
+        player_id = self._player_id_counter
+        self.players[player_id] = {"name": name, "no": no}
+        return player_id
 
     def delplayer(self, name: str) -> None:
-        """Removes a player from the team's roster.
+        """Removes the first player found with the given name.
 
         Raises:
             ValueError: If the player is not found.
         """
-        try:
-            del self.players[name]
-        except KeyError:
-            raise ValueError(f"Player '{name}' not found in team '{self.team_name}'.")
+        for pid, pdata in list(self.players.items()):
+            if pdata["name"] == name:
+                del self.players[pid]
+                return
+        raise ValueError(f"Player '{name}' not found in team '{self.team_name}'.")
+
+    # CRUD Methods
+
+    def get(self) -> str:
+        """Returns a textual representation of the team (JSON-like)."""
+        return str({
+            "id": self.getid() if hasattr(self, "getid") else None,
+            "name": self.team_name,
+            "players": self.players,
+            "attributes": self._generic_attrs
+        })
+
+    def update(self, **kw: Any) -> None:
+        """Updates the team with new values.
+
+        If 'name' is provided, it updates the team name. Other arguments
+        are treated as generic attributes.
+        """
+        if "name" in kw:
+            self.team_name = kw.pop("name")
+
+        for key, value in kw.items():
+            self[key] = value
+
+    def delete(self) -> None:
+        """Deletes the item by clearing its internal data."""
+        self.players.clear()
+        self._generic_attrs.clear()
+        self.team_name = "DELETED"
+
+    def getid(self) -> Any:
+        """Returns the unique ID of the team if assigned by a Repo."""
+        return getattr(self, "id_", None)
 
 
 class PlaceholderTeam(Team):
