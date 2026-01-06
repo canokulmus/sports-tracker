@@ -1,92 +1,98 @@
 // src/services/api.js
-// Mock API servisi - Backend hazır olunca WebSocket'e çevrilecek
+// WebSocket API service for Sports Tracker
+// Connects to backend server via WebSocket (ws://localhost:8888)
 
-import {
-  mockTeams,
-  mockGames,
-  mockCups,
-  mockStandings,
-  mockGameTreeElimination,
-  mockGameTreeGroup,
-  mockGroupStandings,
-  delay,
-  generateId
-} from '../mocks';
+import wsClient from './websocket';
 
-// Lokal state (mock database gibi)
-let teams = [...mockTeams];
-let games = [...mockGames];
-let cups = [...mockCups];
+// Helper to map backend state names to frontend
+const mapGameState = (backendState) => {
+  // Backend and frontend use the same state names:
+  // READY, RUNNING, PAUSED, ENDED
+  return backendState;
+};
+
+// Helper to transform backend game to frontend format
+const transformGame = (backendGame) => {
+  return {
+    id: backendGame.id,
+    home: {
+      id: backendGame.home_id || backendGame.id, // Backend doesn't return team IDs separately
+      name: backendGame.home
+    },
+    away: {
+      id: backendGame.away_id || backendGame.id,
+      name: backendGame.away
+    },
+    state: mapGameState(backendGame.state),
+    score: {
+      home: backendGame.score.home,
+      away: backendGame.score.away
+    },
+    scorers: backendGame.scorers || { home: [], away: [] },
+    datetime: backendGame.datetime || new Date().toISOString(),
+    group: backendGame.group || null
+  };
+};
 
 // ==========================================
 // TEAM API
 // ==========================================
 export const teamApi = {
   getAll: async () => {
-    await delay(300);
-    return [...teams];
+    const response = await wsClient.sendCommand('GET_TEAMS');
+    return response.teams || [];
   },
 
   getById: async (id) => {
-    await delay(200);
-    return teams.find((t) => t.id === id) || null;
+    const response = await wsClient.sendCommand('GET_TEAMS');
+    return response.teams.find(t => t.id === id) || null;
   },
 
   create: async (name) => {
-    await delay(300);
-    const newTeam = {
-      id: generateId(),
+    const response = await wsClient.sendCommand('CREATE_TEAM', { name });
+    return {
+      id: response.id,
       name,
-      players: {},
+      players: {}
     };
-    teams.push(newTeam);
-    return newTeam;
   },
 
   delete: async (id) => {
-    await delay(200);
-    teams = teams.filter((t) => t.id !== id);
+    await wsClient.sendCommand('DELETE', { id });
     return { success: true };
   },
 
   addPlayer: async (teamId, playerName, playerNo) => {
-    await delay(200);
-    const team = teams.find((t) => t.id === teamId);
-    if (team) {
-      team.players[playerName] = { no: playerNo };
-      return team;
-    }
-    throw new Error("Team not found");
+    await wsClient.sendCommand('ADD_PLAYER', {
+      team_id: teamId,
+      name: playerName,
+      no: playerNo
+    });
+    return await teamApi.getById(teamId);
   },
 
   removePlayer: async (teamId, playerName) => {
-    await delay(200);
-    const team = teams.find((t) => t.id === teamId);
-    if (team && team.players[playerName]) {
-      delete team.players[playerName];
-      return team;
-    }
-    throw new Error("Player not found");
+    await wsClient.sendCommand('REMOVE_PLAYER', {
+      team_id: teamId,
+      name: playerName
+    });
+    return await teamApi.getById(teamId);
   },
 
   setCustomField: async (teamId, key, value) => {
-    await delay(200);
-    const team = teams.find((t) => t.id === teamId);
-    if (team) {
-      team[key] = value;
-      return team;
-    }
-    throw new Error("Team not found");
+    const updates = { [key]: value };
+    await wsClient.sendCommand('UPDATE_TEAM', {
+      id: teamId,
+      ...updates
+    });
+    return await teamApi.getById(teamId);
   },
 
   deleteCustomField: async (teamId, key) => {
-    await delay(200);
-    const team = teams.find((t) => t.id === teamId);
-    if (team && team[key] !== undefined) {
-      delete team[key];
-      return team;
-    }
-    throw new Error("Field not found");
+    // Backend doesn't have explicit delete field command
+    // We'll set it to empty string or handle it differently
+    console.warn('Delete custom field not implemented in backend');
+    return await teamApi.getById(teamId);
   },
 };
 
@@ -95,114 +101,79 @@ export const teamApi = {
 // ==========================================
 export const gameApi = {
   getAll: async () => {
-    await delay(300);
-    return [...games];
+    const response = await wsClient.sendCommand('GET_GAMES');
+    return (response.games || []).map(transformGame);
   },
 
   getById: async (id) => {
-    await delay(200);
-    return games.find((g) => g.id === id) || null;
+    const response = await wsClient.sendCommand('GET_GAMES');
+    const game = response.games.find(g => g.id === id);
+    return game ? transformGame(game) : null;
   },
 
-  // Maç için takım oyuncularını getir
   getPlayersForGame: async (gameId) => {
-    await delay(100);
-    const game = games.find((g) => g.id === gameId);
+    const game = await gameApi.getById(gameId);
     if (!game) return { home: [], away: [] };
-    
-    const homeTeam = teams.find((t) => t.id === game.home.id);
-    const awayTeam = teams.find((t) => t.id === game.away.id);
-    
+
+    // Get players from teams
+    const response = await wsClient.sendCommand('GET_PLAYERS', {
+      team_id: game.home.id
+    });
+    const homePlayers = (response.players || []).map(p => p.name);
+
+    const awayResponse = await wsClient.sendCommand('GET_PLAYERS', {
+      team_id: game.away.id
+    });
+    const awayPlayers = (awayResponse.players || []).map(p => p.name);
+
     return {
-      home: homeTeam ? Object.keys(homeTeam.players) : [],
-      away: awayTeam ? Object.keys(awayTeam.players) : [],
+      home: homePlayers,
+      away: awayPlayers
     };
   },
 
   create: async (homeId, awayId) => {
-    await delay(300);
-    const home = teams.find((t) => t.id === homeId);
-    const away = teams.find((t) => t.id === awayId);
-    
-    if (!home || !away) throw new Error("Team not found");
+    const response = await wsClient.sendCommand('CREATE_GAME', {
+      home_id: homeId,
+      away_id: awayId
+    });
 
-    const newGame = {
-      id: generateId(),
-      home: { id: home.id, name: home.name },
-      away: { id: away.id, name: away.name },
-      state: "READY",
-      score: { home: 0, away: 0 },
-      scorers: { home: [], away: [] },
-      datetime: new Date().toISOString(),
-      group: null,
-    };
-    games.push(newGame);
-    return newGame;
+    // Fetch the created game to get full details
+    return await gameApi.getById(response.id);
   },
 
   start: async (id) => {
-    await delay(200);
-    const game = games.find((g) => g.id === id);
-    if (game) {
-      game.state = "RUNNING";
-      return game;
-    }
-    throw new Error("Game not found");
+    await wsClient.sendCommand('START', { id });
+    return await gameApi.getById(id);
   },
 
   pause: async (id) => {
-    await delay(200);
-    const game = games.find((g) => g.id === id);
-    if (game) {
-      game.state = "PAUSED";
-      return game;
-    }
-    throw new Error("Game not found");
+    await wsClient.sendCommand('PAUSE', { id });
+    return await gameApi.getById(id);
   },
 
   resume: async (id) => {
-    await delay(200);
-    const game = games.find((g) => g.id === id);
-    if (game) {
-      game.state = "RUNNING";
-      return game;
-    }
-    throw new Error("Game not found");
+    await wsClient.sendCommand('RESUME', { id });
+    return await gameApi.getById(id);
   },
 
   end: async (id) => {
-    await delay(200);
-    const game = games.find((g) => g.id === id);
-    if (game) {
-      game.state = "ENDED";
-      return game;
-    }
-    throw new Error("Game not found");
+    await wsClient.sendCommand('END', { id });
+    return await gameApi.getById(id);
   },
 
   score: async (id, side, playerName, points = 1) => {
-    await delay(100);
-    const game = games.find((g) => g.id === id);
-    if (game && game.state === "RUNNING") {
-      game.score[side] += points;
-      // Gol atan oyuncuyu ekle
-      if (playerName) {
-        if (!game.scorers) {
-          game.scorers = { home: [], away: [] };
-        }
-        game.scorers[side].push({
-          player: playerName,
-          minute: Math.floor(Math.random() * 90) + 1, // Mock dakika
-        });
-      }
-      return game;
-    }
-    throw new Error("Cannot score");
+    await wsClient.sendCommand('SCORE', {
+      id,
+      points,
+      side: side.toUpperCase(),
+      player: playerName
+    });
+    return await gameApi.getById(id);
   },
 
   delete: async (id) => {
-    await delay(200);
-    games = games.filter((g) => g.id !== id);
+    await wsClient.sendCommand('DELETE', { id });
     return { success: true };
   },
 };
@@ -212,72 +183,42 @@ export const gameApi = {
 // ==========================================
 export const cupApi = {
   getAll: async () => {
-    await delay(300);
-    return [...cups];
+    const response = await wsClient.sendCommand('GET_CUPS');
+    return response.cups || [];
   },
 
   getById: async (id) => {
-    await delay(200);
-    return cups.find((c) => c.id === id) || null;
+    const response = await wsClient.sendCommand('GET_CUPS');
+    return response.cups.find(c => c.id === id) || null;
   },
 
   getStandings: async (id) => {
-    await delay(300);
-    const cup = cups.find((c) => c.id === id);
-
-    if (!cup) {
-      throw new Error("Cup not found");
-    }
-
-    // GROUP tournament için grup bazlı standings
-    if (cup.type === 'GROUP') {
-      return { ...mockGroupStandings };
-    }
-
-    // LEAGUE için normal standings
-    return [...mockStandings];
+    const response = await wsClient.sendCommand('GET_STANDINGS', { id });
+    return response.standings;
   },
 
   getGameTree: async (id) => {
-    await delay(300);
-    const cup = cups.find((c) => c.id === id);
-
-    if (!cup) {
-      throw new Error("Cup not found");
-    }
-
-    // Only ELIMINATION and GROUP tournaments have GameTree
-    if (cup.type === 'LEAGUE') {
-      throw new Error("GameTree is not available for LEAGUE tournaments");
-    }
-
-    if (cup.type === 'ELIMINATION') {
-      return { ...mockGameTreeElimination };
-    }
-
-    if (cup.type === 'GROUP') {
-      return { ...mockGameTreeGroup };
-    }
-
-    throw new Error("Unknown cup type");
+    const response = await wsClient.sendCommand('GET_GAMETREE', { id });
+    return response.gametree;
   },
 
   create: async (name, type, teamIds) => {
-    await delay(400);
-    const newCup = {
-      id: generateId(),
+    const response = await wsClient.sendCommand('CREATE_CUP', {
+      cup_type: type,
+      team_ids: teamIds
+    });
+
+    return {
+      id: response.id,
       name,
       type,
       teams: teamIds,
-      gameCount: type === "LEAGUE" ? (teamIds.length * (teamIds.length - 1)) / 2 : teamIds.length - 1,
+      gameCount: 0
     };
-    cups.push(newCup);
-    return newCup;
   },
 
   delete: async (id) => {
-    await delay(200);
-    cups = cups.filter((c) => c.id !== id);
+    await wsClient.sendCommand('DELETE', { id });
     return { success: true };
   },
 };
@@ -287,100 +228,93 @@ export const cupApi = {
 // ==========================================
 export const liveApi = {
   getRunningGames: async () => {
-    await delay(200);
-    return games.filter((g) => g.state === "RUNNING" || g.state === "PAUSED");
+    const response = await wsClient.sendCommand('GET_GAMES');
+    const games = (response.games || []).map(transformGame);
+    return games.filter(g => g.state === 'RUNNING' || g.state === 'PAUSED');
   },
 };
 
 // ==========================================
-// WATCH API (Observer Pattern - Mock)
+// WATCH API (Observer Pattern)
 // ==========================================
-const watchedGames = new Set();
-const watchCallbacks = new Map();
-
 export const watchApi = {
   watch: async (gameId, callback) => {
-    await delay(100);
-    watchedGames.add(gameId);
+    await wsClient.sendCommand('WATCH', { id: gameId });
 
+    // Register callback for notifications
     if (callback) {
-      if (!watchCallbacks.has(gameId)) {
-        watchCallbacks.set(gameId, []);
+      const unsubscribe = wsClient.onNotification((notification) => {
+        if (notification.game_id === gameId) {
+          callback({
+            gameId: notification.game_id,
+            type: 'update',
+            game: transformGame({
+              id: notification.game_id,
+              home: notification.home,
+              away: notification.away,
+              state: notification.state,
+              score: notification.score
+            })
+          });
+        }
+      });
+
+      // Store unsubscribe function for later cleanup
+      if (!watchApi._unsubscribers) {
+        watchApi._unsubscribers = new Map();
       }
-      watchCallbacks.get(gameId).push(callback);
+      watchApi._unsubscribers.set(gameId, unsubscribe);
     }
 
     return { success: true, gameId };
   },
 
   unwatch: async (gameId) => {
-    await delay(100);
-    watchedGames.delete(gameId);
-    watchCallbacks.delete(gameId);
+    // Unregister callback
+    if (watchApi._unsubscribers?.has(gameId)) {
+      const unsubscribe = watchApi._unsubscribers.get(gameId);
+      unsubscribe();
+      watchApi._unsubscribers.delete(gameId);
+    }
+
     return { success: true, gameId };
   },
 
   getWatchedGames: async () => {
-    await delay(100);
-    return Array.from(watchedGames);
+    // Get from localStorage (frontend manages watched games)
+    const watched = JSON.parse(localStorage.getItem('watchedGames') || '[]');
+    return watched;
   },
 
   isWatching: async (gameId) => {
-    await delay(50);
-    return watchedGames.has(gameId);
-  },
-
-  notifyWatchers: (gameId, event) => {
-    const callbacks = watchCallbacks.get(gameId);
-    if (callbacks && callbacks.length > 0) {
-      callbacks.forEach(cb => cb(event));
-    }
+    const watched = await watchApi.getWatchedGames();
+    return watched.includes(gameId);
   },
 };
 
-export function simulateGameUpdate(gameId, updateType = 'score') {
-  const game = games.find((g) => g.id === gameId);
-
-  // Check localStorage for watched games instead of internal Set
-  const watchedGamesFromStorage = JSON.parse(localStorage.getItem('watchedGames') || '[]');
-
-  if (!game) {
-    console.log('[Simulate Update] Game not found:', gameId);
-    return;
+// ==========================================
+// WebSocket Connection Management
+// ==========================================
+export const initializeWebSocket = async () => {
+  try {
+    await wsClient.connect();
+    console.log('✅ WebSocket connected to backend');
+    return true;
+  } catch (error) {
+    console.error('❌ WebSocket connection failed:', error);
+    return false;
   }
+};
 
-  if (!watchedGamesFromStorage.includes(gameId)) {
-    console.log('[Simulate Update] Game not being watched:', gameId);
-    return;
-  }
+export const disconnectWebSocket = () => {
+  wsClient.disconnect();
+};
 
-  if (game.state !== 'RUNNING' && game.state !== 'PAUSED') {
-    console.log('[Simulate Update] Skipping - game not live:', gameId, 'State:', game.state);
-    return;
-  }
+export const isWebSocketConnected = () => {
+  return wsClient.isConnected();
+};
 
-  const event = {
-    gameId,
-    type: updateType,
-    timestamp: new Date().toISOString(),
-    game: { ...game },
-  };
-
-  if (updateType === 'score' && game.state === 'RUNNING') {
-    const side = Math.random() > 0.5 ? 'home' : 'away';
-    game.score[side] += 1;
-    event.side = side;
-    event.score = { ...game.score };
-    console.log('[Simulate Update] Score updated:', gameId, event.score);
-  } else if (updateType === 'state') {
-    event.oldState = game.state;
-    event.newState = game.state === 'RUNNING' ? 'PAUSED' : 'RUNNING';
-    game.state = event.newState;
-    console.log('[Simulate Update] State changed:', gameId, event.oldState, '->', event.newState);
-  } else {
-    return;
-  }
-
-  watchApi.notifyWatchers(gameId, event);
-  return event;
-}
+// Register global notification handler
+export const onGameNotification = (handler) => {
+  return wsClient.onNotification(handler);
+};

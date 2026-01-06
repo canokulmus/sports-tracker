@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 
-export function useMockData(fetchFn, dependencies = []) {
+export function useApiData(fetchFn, dependencies = []) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)

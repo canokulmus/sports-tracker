@@ -2,23 +2,19 @@ import { Eye, Bell, Trash2 } from 'lucide-react'
 import { useWatch } from '../context/WatchContext'
 import { gameApi } from '../services/api'
 import { colors } from '../styles/colors'
-import { useMockData, useWatchedGamesUpdates } from '../hooks'
+import { useApiData } from '../hooks'
 import { Loader } from '../components/Loader'
 import GameCard from '../components/Game/GameCard'
 
 function WatchedGamesPage() {
-  const { watchedGames, unwatchGame, notifications, removeNotification, clearNotifications, addNotification } = useWatch()
-
-  console.log('[WatchedGamesPage] Rendering - notifications:', notifications.length, notifications)
+  const { watchedGames, unwatchGame, notifications, removeNotification, clearNotifications } = useWatch()
 
   const fetchWatchedGames = async () => {
     const allGames = await gameApi.getAll()
     return allGames.filter((g) => watchedGames.includes(g.id))
   }
 
-  const { data: games, loading, reload } = useMockData(fetchWatchedGames, [watchedGames])
-
-  useWatchedGamesUpdates(reload, true, 5000)
+  const { data: games, loading, reload } = useApiData(fetchWatchedGames, [watchedGames])
 
   const handleUnwatch = (gameId) => {
     unwatchGame(gameId)
@@ -38,12 +34,6 @@ function WatchedGamesPage() {
         </div>
         <p className="page-subtitle">
           Games you are following for real-time updates
-          <button
-            onClick={() => addNotification({ gameId: 999, type: 'test', message: 'Test notification - manual' })}
-            style={{ marginLeft: '20px', padding: '4px 12px', background: '#4f46e5', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}
-          >
-            Test Notification
-          </button>
         </p>
       </div>
 
@@ -135,7 +125,7 @@ function WatchedGamesPage() {
 
       <div className="card mt-4" style={styles.footerCard}>
         <div style={styles.footerText}>
-          💡 <strong>Real-time updates:</strong> When backend is connected, you'll receive instant notifications when watched games are updated.
+          💡 <strong>Real-time updates:</strong> You'll receive instant notifications via WebSocket when watched games are updated.
         </div>
       </div>
     </div>

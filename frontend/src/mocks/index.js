@@ -1,5 +1,7 @@
 // src/mocks/index.js
-// Backend hazır olana kadar kullanılacak mock veriler
+// DEPRECATED: These mock data are no longer used.
+// The application now uses real WebSocket API (ws://localhost:8888)
+// Kept for reference only.
 
 // ==========================================
 // TEAMS

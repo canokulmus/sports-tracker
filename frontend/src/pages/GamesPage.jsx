@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { gameApi, teamApi } from '../services/api'
 import { GameCard } from '../components/Game'
-import { useMockData, useToggle, useFormState, useGames } from '../hooks'
+import { useApiData, useToggle, useFormState, useGames } from '../hooks'
 import { Loader } from '../components/Loader'
 import Tabs from '../components/Tabs'
 
@@ -32,7 +32,7 @@ function GamesPage() {
     }
   }
 
-  const { data, loading, reload } = useMockData(loadGamesData)
+  const { data, loading, reload } = useApiData(loadGamesData)
   const allGames = data?.games ?? []
   const teams = data?.teams ?? []
   const gamePlayers = data?.gamePlayers ?? {}

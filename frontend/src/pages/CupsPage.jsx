@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, Trophy, ChevronRight } from 'lucide-react'
 import { cupApi, teamApi } from '../services/api'
 import { colors } from '../styles/colors'
-import { useMockData, useToggle, useMultiSelection } from '../hooks'
+import { useApiData, useToggle, useMultiSelection } from '../hooks'
 import { Loader } from '../components/Loader'
 import { useDialog } from '../context/DialogContext'
 
@@ -43,7 +43,7 @@ function CupsPage() {
     return { cups: cupsData, teams: teamsData }
   }
 
-  const { data, loading, reload } = useMockData(loadCupsData)
+  const { data, loading, reload } = useApiData(loadCupsData)
   const cups = data?.cups ?? []
   const teams = data?.teams ?? []
 

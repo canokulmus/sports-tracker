@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Plus, Trash2, UserPlus, X, Users } from 'lucide-react'
 import { teamApi } from '../services/api'
-import { useMockData, useSelection, useFormState, useTeams } from '../hooks'
+import { useApiData, useSelection, useFormState, useTeams } from '../hooks'
 import { Loader } from '../components/Loader'
 import CustomFieldsManager from '../components/CustomFields'
 
@@ -10,7 +10,7 @@ function TeamsPage() {
   const { selected: selectedTeam, select: selectTeam, clear: clearSelection } = useSelection()
   const { formData: newPlayer, updateField, resetForm } = useFormState({ name: '', no: '' })
 
-  const { data: teams, loading, reload } = useMockData(() => teamApi.getAll())
+  const { data: teams, loading, reload } = useApiData(() => teamApi.getAll())
 
   const {
     createTeam,
@@ -96,7 +96,7 @@ function TeamsPage() {
                         <td>
                           <strong>{team.name}</strong>
                         </td>
-                        <td>{Object.keys(team.players).length}</td>
+                        <td>{team.players ? Object.keys(team.players).length : 0}</td>
                         <td>
                           {customFields.length > 0 ? (
                             <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>

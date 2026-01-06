@@ -1,7 +1,7 @@
 import { Radio } from 'lucide-react'
 import { gameApi } from '../services/api'
 import { colors } from '../styles/colors'
-import { useMockData } from '../hooks'
+import { useApiData } from '../hooks'
 import { Loader } from '../components/Loader'
 import GameCard from '../components/Game/GameCard'
 
@@ -11,7 +11,7 @@ function LivePage() {
     return allGames.filter((g) => g.state === 'RUNNING' || g.state === 'PAUSED')
   }
 
-  const { data: games, loading } = useMockData(fetchLiveGames)
+  const { data: games, loading } = useApiData(fetchLiveGames)
 
   if (loading) {
     return <Loader text="Loading live games..." />
@@ -36,10 +36,6 @@ function LivePage() {
           <div style={styles.liveDot} />
           <div style={styles.statsText}>
             <strong style={styles.statsCount}>{games?.length ?? 0}</strong> live games
-          </div>
-          <div style={styles.statsDivider}>•</div>
-          <div style={styles.statsInfo}>
-            Real-time updates with WebSocket coming soon
           </div>
         </div>
       </div>

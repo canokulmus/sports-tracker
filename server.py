@@ -123,7 +123,22 @@ class Session:
                     teams = []
                     for oid, data in repository._objects.items():
                         if isinstance(data['instance'], Team):
-                            teams.append({"id": oid, "name": data['instance'].team_name})
+                            team = data['instance']
+                            players = {}
+                            for pid, pdata in team.players.items():
+                                players[pdata['name']] = {"no": pdata['no']}
+
+                            team_data = {
+                                "id": oid,
+                                "name": team.team_name,
+                                "players": players
+                            }
+
+                            # Add custom fields (generic attributes)
+                            for key, value in team._generic_attrs.items():
+                                team_data[key] = value
+
+                            teams.append(team_data)
                 return {"status": "OK", "teams": teams}
 
             elif cmd == "GET_CUPS":
@@ -173,17 +188,19 @@ class Session:
                     tid = repository.create(type="team", name=name)
                     repository.attach(tid, self.user)
                     self.attached_ids.append(tid)
+                    save_state()
                 return {"status": "OK", "id": tid, "message": "Team created"}
             
             elif cmd == "UPDATE_TEAM":
                 tid = req.get("id")
                 if tid is None: return {"status": "ERROR", "message": "Missing 'id'"}
-                
-                updates = {k: v for k, v in req.items() if k not in ["command", "id"]}
+
+                updates = {k: v for k, v in req.items() if k not in ["command", "id", "requestId"]}
                 with repo_lock:
                     obj = repository._objects.get(int(tid))
                     if obj and isinstance(obj['instance'], Team):
                         obj['instance'].update(**updates)
+                        save_state()
                         return {"status": "OK", "message": f"Team {tid} updated"}
                     return {"status": "ERROR", "message": "Team not found"}
 
@@ -197,6 +214,7 @@ class Session:
                     obj = repository._objects.get(int(tid))
                     if obj and isinstance(obj['instance'], Team):
                         pid = obj['instance'].addplayer(pname, int(pno))
+                        save_state()
                         return {"status": "OK", "message": f"Player added with ID {pid}"}
                     return {"status": "ERROR", "message": "Team not found"}
 
@@ -209,6 +227,7 @@ class Session:
                     obj = repository._objects.get(int(tid))
                     if obj and isinstance(obj['instance'], Team):
                         obj['instance'].delplayer(pname)
+                        save_state()
                         return {"status": "OK", "message": f"Player {pname} removed"}
                     return {"status": "ERROR", "message": "Team not found"}
 
@@ -241,6 +260,7 @@ class Session:
                         away=a_data['instance'],
                         datetime=datetime.now()
                     )
+                    save_state()
                 return {"status": "OK", "id": gid, "message": "Game created"}
             
             elif cmd == "UPDATE_GAME":
@@ -272,6 +292,7 @@ class Session:
                     game = self.find_game(int(gid))
                     if game:
                         game.update(**updates)
+                        save_state()
                         return {"status": "OK", "message": f"Game {gid} updated"}
                     return {"status": "ERROR", "message": "Game not found"}
 
@@ -321,10 +342,11 @@ class Session:
                     if game:
                         if game.state == GameState.FINISHED:
                             return {"status": "ERROR", "message": "Cannot start a finished game"}
-                        
+
                         game.start()
+                        save_state()
                         return {
-                            "status": "OK", 
+                            "status": "OK",
                             "message": f"Game started: {game.home().team_name} vs {game.away().team_name}"
                         }
                     return {"status": "ERROR", "message": "Game not found"}
@@ -337,8 +359,9 @@ class Session:
                     game = self.find_game(int(gid))
                     if game:
                         game.pause()
+                        save_state()
                         return {
-                            "status": "OK", 
+                            "status": "OK",
                             "message": f"Game paused: {game.home().team_name} vs {game.away().team_name}"
                         }
                     return {"status": "ERROR", "message": "Game not found"}
@@ -351,8 +374,9 @@ class Session:
                     game = self.find_game(int(gid))
                     if game:
                         game.resume()
+                        save_state()
                         return {
-                            "status": "OK", 
+                            "status": "OK",
                             "message": f"Game resumed: {game.home().team_name} vs {game.away().team_name}"
                         }
                     return {"status": "ERROR", "message": "Game not found"}
@@ -370,11 +394,12 @@ class Session:
                         # Safety check: only allow scoring if the game is actually running
                         if game.state != GameState.STARTED:
                             return {"status": "ERROR", "message": f"Cannot score: Game is in {game.state.name} state"}
-                        
+
                         team_obj = game.home() if side == "HOME" else game.away()
                         game.score(int(pts), team_obj, player=player)
+                        save_state()
                         return {
-                            "status": "OK", 
+                            "status": "OK",
                             "message": f"Score updated: {game.home().team_name} {game.home_score} - {game.away_score} {game.away().team_name}"
                         }
                     return {"status": "ERROR", "message": "Game not found"}
@@ -405,6 +430,7 @@ class Session:
                         # Attach user to the new Cup
                         repository.attach(cid, self.user)
                         self.attached_ids.append(cid)
+                        save_state()
 
                     except ValueError as e:
                         return {"status": "ERROR", "message": str(e)}
@@ -546,12 +572,13 @@ class Session:
                         if int(oid) in self.attached_ids:
                             repository.detach(int(oid), self.user)
                             self.attached_ids.remove(int(oid))
-                        
+
                         repository.delete(int(oid))
-                        
+
                         if int(oid) in self.watched_ids:
                             self.watched_ids.remove(int(oid))
-                            
+
+                        save_state()
                         return {"status": "OK", "message": "Object deleted"}
                     except ValueError as e:
                         return {"status": "ERROR", "message": str(e)}

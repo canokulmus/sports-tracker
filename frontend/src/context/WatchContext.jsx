@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { onGameNotification } from '../services/api'
 
 const WatchContext = createContext(null)
 
@@ -20,6 +21,32 @@ export function WatchProvider({ children }) {
   useEffect(() => {
     localStorage.setItem('watchNotifications', JSON.stringify(notifications))
   }, [notifications])
+
+  useEffect(() => {
+    const unsubscribe = onGameNotification((notification) => {
+      if (notification.type === 'NOTIFICATION' && notification.game_id) {
+        const gameId = notification.game_id
+
+        if (watchedGames.includes(gameId)) {
+          const message = `${notification.home} vs ${notification.away}: ${notification.score.home}-${notification.score.away} (${notification.state})`
+
+          const newNotification = {
+            id: Date.now(),
+            timestamp: new Date().toISOString(),
+            gameId: gameId,
+            message: message,
+            type: 'game_update'
+          }
+
+          setNotifications((prev) => [newNotification, ...prev].slice(0, 50))
+        }
+      }
+    })
+
+    return () => {
+      if (unsubscribe) unsubscribe()
+    }
+  }, [watchedGames])
 
   const watchGame = useCallback((gameId) => {
     setWatchedGames((prev) => {

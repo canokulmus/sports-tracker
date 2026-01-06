@@ -115,10 +115,9 @@ export const colors = {
 
   // Connection Status (Bağlantı durumu)
   connection: {
-    online: '#10b981',       // Neon yeşil
-    offline: '#ff4d6d',      // Neon kırmızı
-    mock: '#fbbf24',         // Neon sarı
-    connecting: '#06b6d4',   // Neon cyan
+    online: '#10b981',       // Neon yeşil - WebSocket connected
+    offline: '#ff4d6d',      // Neon kırmızı - WebSocket disconnected
+    connecting: '#06b6d4',   // Neon cyan - WebSocket connecting
   },
 }
 

@@ -5,12 +5,26 @@ import { Trophy, Users, Gamepad2, Award, Radio, Eye, ChevronLeft, ChevronRight, 
 import { colors } from '../../styles/colors'
 import { useMediaQuery, mediaQueries } from '../../utils/responsive'
 import { useWatch } from '../../context/WatchContext'
+import { isWebSocketConnected } from '../../services/api'
 import './SideNav.css'
 
 const SideNav = forwardRef(({ onToggle }, ref) => {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [wsConnected, setWsConnected] = useState(false)
   const isMobile = useMediaQuery(mediaQueries.tablet)
+
+  // Check WebSocket connection status
+  useEffect(() => {
+    const checkConnection = () => {
+      setWsConnected(isWebSocketConnected())
+    }
+
+    checkConnection()
+    const interval = setInterval(checkConnection, 2000)
+
+    return () => clearInterval(interval)
+  }, [])
 
   // Auto-close mobile menu when screen becomes larger
   useEffect(() => {
@@ -119,11 +133,14 @@ const SideNav = forwardRef(({ onToggle }, ref) => {
                   width: 8,
                   height: 8,
                   borderRadius: '50%',
-                  backgroundColor: colors.connection.mock,
+                  backgroundColor: wsConnected ? colors.state.success : colors.state.danger,
+                  animation: wsConnected ? 'pulse 2s ease-in-out infinite' : 'none',
                 }}
               />
               {(!isCollapsed || isMobile) && (
-                <span className="status-text">Mock Mode</span>
+                <span className="status-text">
+                  {wsConnected ? 'Live' : 'Disconnected'}
+                </span>
               )}
             </div>
           </div>
