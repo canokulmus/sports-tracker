@@ -237,8 +237,8 @@ class Session:
                 with repo_lock:
                     obj = repository._objects.get(int(tid))
                     if obj and isinstance(obj['instance'], Team):
-                        # Assuming Team.players is a dictionary of {name: number}
-                        players = [{"name": name, "no": no} for name, no in obj['instance'].players.items()]
+                        # Team.players is Dict[int, Dict[str, Any]] -> {id: {"name": str, "no": int}}
+                        players = [{"name": pdata["name"], "no": pdata["no"]} for pdata in obj['instance'].players.values()]
                         return {"status": "OK", "players": players}
                     return {"status": "ERROR", "message": f"Team {tid} not found for listing players"}
 
@@ -340,7 +340,7 @@ class Session:
                 with repo_lock:
                     game = self.find_game(int(gid))
                     if game:
-                        if game.state == GameState.FINISHED:
+                        if game.state == GameState.ENDED:
                             return {"status": "ERROR", "message": "Cannot start a finished game"}
 
                         game.start()
@@ -392,7 +392,7 @@ class Session:
                     game = self.find_game(int(gid))
                     if game:
                         # Safety check: only allow scoring if the game is actually running
-                        if game.state != GameState.STARTED:
+                        if game.state != GameState.RUNNING:
                             return {"status": "ERROR", "message": f"Cannot score: Game is in {game.state.name} state"}
 
                         team_obj = game.home() if side == "HOME" else game.away()
