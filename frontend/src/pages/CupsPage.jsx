@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Trophy, ChevronRight } from 'lucide-react'
+import { Plus, Trophy, ChevronRight, Trash2 } from 'lucide-react'
 import { cupApi, teamApi } from '../services/api'
 import { colors } from '../styles/colors'
 import { useApiData, useToggle, useMultiSelection } from '../hooks'
@@ -30,7 +30,7 @@ function CupsPage() {
   const navigate = useNavigate()
   const [newCupName, setNewCupName] = useState('')
   const [cupType, setCupType] = useState('LEAGUE')
-  const { alert } = useDialog()
+  const { alert, confirm } = useDialog()
 
   const { value: showForm, toggle: toggleForm } = useToggle(false)
   const { selected: selectedTeamIds, toggleItem: toggleTeam, isSelected } = useMultiSelection([])
@@ -66,6 +66,24 @@ function CupsPage() {
     setCupType('LEAGUE')
     toggleForm()
     reload()
+  }
+
+  const handleDeleteCup = (e, cup) => {
+    e.stopPropagation() // Prevent navigation when clicking delete
+    confirm({
+      title: 'Delete Tournament',
+      message: `Are you sure you want to delete "${cup.name}"? This will also delete all ${cup.gameCount} games in this tournament.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        try {
+          await cupApi.delete(cup.id)
+          reload()
+        } catch (error) {
+          console.error('Failed to delete tournament:', error)
+        }
+      },
+    })
   }
 
   if (loading) {
@@ -157,9 +175,38 @@ function CupsPage() {
                 className="card game-card-hover"
                 style={{
                   cursor: 'pointer',
+                  position: 'relative',
                 }}
                 onClick={() => handleSelectCup(cup)}
               >
+                <button
+                  onClick={(e) => handleDeleteCup(e, cup)}
+                  style={{
+                    position: 'absolute',
+                    top: '12px',
+                    right: '12px',
+                    padding: '6px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: 'transparent',
+                    color: colors.text.muted,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = `${colors.state.danger}15`
+                    e.currentTarget.style.color = colors.state.danger
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = colors.text.muted
+                  }}
+                >
+                  <Trash2 size={16} />
+                </button>
                 <div className="flex justify-between items-center mb-4">
                   <div className="flex items-center gap-2">
                     <Trophy size={20} color={colors.brand.primary} />

@@ -146,7 +146,27 @@ class Session:
                     cups = []
                     for oid, data in repository._objects.items():
                         if isinstance(data['instance'], Cup):
-                            cups.append({"id": oid, "type": data['instance'].cup_type, "desc": str(data['instance'])})
+                            c = data['instance']
+
+                            # Get cup name from metadata
+                            cup_name = data.get('metadata', {}).get('name', f"Tournament #{oid}")
+
+                            # Get team IDs
+                            team_ids = []
+                            for team in c.teams:
+                                for tid, tdata in repository._objects.items():
+                                    if tdata['instance'] is team:
+                                        team_ids.append(tid)
+                                        break
+
+                            cups.append({
+                                "id": oid,
+                                "name": cup_name,
+                                "type": c.cup_type,
+                                "teams": team_ids,
+                                "gameCount": len(c.games),
+                                "desc": str(c)
+                            })
                 return {"status": "OK", "cups": cups}
 
             elif cmd == "GET_GAMES":
@@ -155,10 +175,22 @@ class Session:
                     for oid, data in repository._objects.items():
                         if isinstance(data['instance'], Game):
                             g = data['instance']
+
+                            # Find team IDs by searching repository for team objects
+                            home_id = None
+                            away_id = None
+                            for tid, tdata in repository._objects.items():
+                                if tdata['instance'] is g.home_:
+                                    home_id = tid
+                                if tdata['instance'] is g.away_:
+                                    away_id = tid
+
                             games.append({
                                 "id": oid,
                                 "home": g.home().team_name,
                                 "away": g.away().team_name,
+                                "home_id": home_id,
+                                "away_id": away_id,
                                 "state": g.state.name,
                                 "score": {"home": g.home_score, "away": g.away_score}
                             })
@@ -406,6 +438,7 @@ class Session:
 
             elif cmd == "CREATE_CUP":
                 c_type = req.get("cup_type")
+                c_name = req.get("name", "")
                 t_ids = req.get("team_ids")
                 if not c_type or not t_ids:
                     return {"status": "ERROR", "message": "Missing 'cup_type' or 'team_ids' parameters for CREATE_CUP command."}
@@ -426,6 +459,11 @@ class Session:
                             cup_type=c_type,
                             interval=timedelta(days=1),
                         )
+
+                        # Store cup name in metadata
+                        if 'metadata' not in repository._objects[cid]:
+                            repository._objects[cid]['metadata'] = {}
+                        repository._objects[cid]['metadata']['name'] = c_name
 
                         # Attach user to the new Cup
                         repository.attach(cid, self.user)
@@ -452,7 +490,44 @@ class Session:
                         return {"status": "ERROR", "message": f"Object with ID {cid} is not a Cup (found {type(cup).__name__}) for GET_STANDINGS command."}
 
                     # Calculate standings
-                    standings = cup.standings()
+                    raw_standings = cup.standings()
+
+                    # Transform standings to frontend format
+                    if isinstance(raw_standings, list):
+                        # LEAGUE format: list of tuples (team, won, draw, lost, gf, ga, points)
+                        standings = []
+                        for row in raw_standings:
+                            standings.append({
+                                "team": row[0],
+                                "played": row[1] + row[2] + row[3],  # won + draw + lost
+                                "won": row[1],
+                                "draw": row[2],
+                                "lost": row[3],
+                                "gf": row[4],
+                                "ga": row[5],
+                                "points": row[6]
+                            })
+                    elif isinstance(raw_standings, dict):
+                        # GROUP format: dict with group names
+                        standings = {}
+                        for group_name, group_standings in raw_standings.items():
+                            if isinstance(group_standings, list):
+                                standings[group_name] = []
+                                for row in group_standings:
+                                    standings[group_name].append({
+                                        "team": row[0],
+                                        "played": row[1] + row[2] + row[3],
+                                        "won": row[1],
+                                        "draw": row[2],
+                                        "lost": row[3],
+                                        "gf": row[4],
+                                        "ga": row[5],
+                                        "points": row[6]
+                                    })
+                            else:
+                                standings[group_name] = group_standings
+                    else:
+                        standings = raw_standings
 
                 return {"status": "OK", "standings": standings}
 
@@ -568,6 +643,30 @@ class Session:
                 if oid is None: return {"status": "ERROR", "message": "Missing 'id' parameter for DELETE command."}
                 with repo_lock:
                     try:
+                        obj_data = repository._objects.get(int(oid))
+
+                        # If deleting a Cup, also delete all its games
+                        if obj_data and isinstance(obj_data['instance'], Cup):
+                            cup = obj_data['instance']
+                            game_ids_to_delete = []
+
+                            # Find all game IDs that belong to this cup
+                            for gid, gdata in repository._objects.items():
+                                if isinstance(gdata['instance'], Game):
+                                    game = gdata['instance']
+                                    # Check if this game is in the cup's games list
+                                    if game in cup.games:
+                                        game_ids_to_delete.append(gid)
+
+                            # Delete all games first
+                            for gid in game_ids_to_delete:
+                                if gid in self.attached_ids:
+                                    repository.detach(gid, self.user)
+                                    self.attached_ids.remove(gid)
+                                if gid in self.watched_ids:
+                                    self.watched_ids.remove(gid)
+                                repository.delete(gid)
+
                         # Auto-detach current user to allow deletion if they are the only one
                         if int(oid) in self.attached_ids:
                             repository.detach(int(oid), self.user)

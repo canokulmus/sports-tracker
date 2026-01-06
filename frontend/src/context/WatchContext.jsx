@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
-import { onGameNotification } from '../services/api'
+import { onGameNotification, watchApi } from '../services/api'
 
 const WatchContext = createContext(null)
 
@@ -14,6 +14,25 @@ export function WatchProvider({ children }) {
     return saved ? JSON.parse(saved) : []
   })
 
+  // Re-watch all games when component mounts (after WebSocket reconnect)
+  useEffect(() => {
+    const reWatchGames = async () => {
+      for (const gameId of watchedGames) {
+        try {
+          await watchApi.watch(gameId)
+          console.log('[WatchContext] Re-watched game on mount:', gameId)
+        } catch (error) {
+          console.error('[WatchContext] Failed to re-watch game:', gameId, error)
+        }
+      }
+    }
+
+    if (watchedGames.length > 0) {
+      // Small delay to ensure WebSocket is connected
+      setTimeout(reWatchGames, 1000)
+    }
+  }, []) // Only run once on mount
+
   useEffect(() => {
     localStorage.setItem('watchedGames', JSON.stringify(watchedGames))
   }, [watchedGames])
@@ -24,11 +43,15 @@ export function WatchProvider({ children }) {
 
   useEffect(() => {
     const unsubscribe = onGameNotification((notification) => {
+      console.log('[WatchContext] Received notification:', notification)
+
       if (notification.type === 'NOTIFICATION' && notification.game_id) {
         const gameId = notification.game_id
+        console.log('[WatchContext] Game ID:', gameId, 'Watched games:', watchedGames)
 
         if (watchedGames.includes(gameId)) {
           const message = `${notification.home} vs ${notification.away}: ${notification.score.home}-${notification.score.away} (${notification.state})`
+          console.log('[WatchContext] Creating notification:', message)
 
           const newNotification = {
             id: Date.now(),
@@ -39,6 +62,8 @@ export function WatchProvider({ children }) {
           }
 
           setNotifications((prev) => [newNotification, ...prev].slice(0, 50))
+        } else {
+          console.log('[WatchContext] Game not watched, ignoring notification')
         }
       }
     })
@@ -48,15 +73,33 @@ export function WatchProvider({ children }) {
     }
   }, [watchedGames])
 
-  const watchGame = useCallback((gameId) => {
-    setWatchedGames((prev) => {
-      if (prev.includes(gameId)) return prev
-      return [...prev, gameId]
-    })
+  const watchGame = useCallback(async (gameId) => {
+    try {
+      // Send WATCH command to backend
+      await watchApi.watch(gameId)
+
+      // Update local state
+      setWatchedGames((prev) => {
+        if (prev.includes(gameId)) return prev
+        return [...prev, gameId]
+      })
+    } catch (error) {
+      console.error('Failed to watch game:', error)
+      throw error
+    }
   }, [])
 
-  const unwatchGame = useCallback((gameId) => {
-    setWatchedGames((prev) => prev.filter((id) => id !== gameId))
+  const unwatchGame = useCallback(async (gameId) => {
+    try {
+      // Send UNWATCH command to backend
+      await watchApi.unwatch(gameId)
+
+      // Update local state
+      setWatchedGames((prev) => prev.filter((id) => id !== gameId))
+    } catch (error) {
+      console.error('Failed to unwatch game:', error)
+      throw error
+    }
   }, [])
 
   const isWatching = useCallback((gameId) => {

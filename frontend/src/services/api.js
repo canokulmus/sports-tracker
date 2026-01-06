@@ -16,11 +16,11 @@ const transformGame = (backendGame) => {
   return {
     id: backendGame.id,
     home: {
-      id: backendGame.home_id || backendGame.id, // Backend doesn't return team IDs separately
+      id: backendGame.home_id,
       name: backendGame.home
     },
     away: {
-      id: backendGame.away_id || backendGame.id,
+      id: backendGame.away_id,
       name: backendGame.away
     },
     state: mapGameState(backendGame.state),
@@ -204,6 +204,7 @@ export const cupApi = {
 
   create: async (name, type, teamIds) => {
     const response = await wsClient.sendCommand('CREATE_CUP', {
+      name: name,
       cup_type: type,
       team_ids: teamIds
     });
@@ -238,45 +239,13 @@ export const liveApi = {
 // WATCH API (Observer Pattern)
 // ==========================================
 export const watchApi = {
-  watch: async (gameId, callback) => {
+  watch: async (gameId) => {
     await wsClient.sendCommand('WATCH', { id: gameId });
-
-    // Register callback for notifications
-    if (callback) {
-      const unsubscribe = wsClient.onNotification((notification) => {
-        if (notification.game_id === gameId) {
-          callback({
-            gameId: notification.game_id,
-            type: 'update',
-            game: transformGame({
-              id: notification.game_id,
-              home: notification.home,
-              away: notification.away,
-              state: notification.state,
-              score: notification.score
-            })
-          });
-        }
-      });
-
-      // Store unsubscribe function for later cleanup
-      if (!watchApi._unsubscribers) {
-        watchApi._unsubscribers = new Map();
-      }
-      watchApi._unsubscribers.set(gameId, unsubscribe);
-    }
-
     return { success: true, gameId };
   },
 
   unwatch: async (gameId) => {
-    // Unregister callback
-    if (watchApi._unsubscribers?.has(gameId)) {
-      const unsubscribe = watchApi._unsubscribers.get(gameId);
-      unsubscribe();
-      watchApi._unsubscribers.delete(gameId);
-    }
-
+    // Backend doesn't have UNWATCH command, just remove from local state
     return { success: true, gameId };
   },
 

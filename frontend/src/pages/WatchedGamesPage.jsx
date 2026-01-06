@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { Eye, Bell, Trash2 } from 'lucide-react'
 import { useWatch } from '../context/WatchContext'
 import { gameApi } from '../services/api'
@@ -8,6 +9,7 @@ import GameCard from '../components/Game/GameCard'
 
 function WatchedGamesPage() {
   const { watchedGames, unwatchGame, notifications, removeNotification, clearNotifications } = useWatch()
+  const lastNotificationIdRef = useRef(null)
 
   const fetchWatchedGames = async () => {
     const allGames = await gameApi.getAll()
@@ -15,6 +17,19 @@ function WatchedGamesPage() {
   }
 
   const { data: games, loading, reload } = useApiData(fetchWatchedGames, [watchedGames])
+
+  // Reload games when NEW notifications arrive (real-time updates)
+  useEffect(() => {
+    if (notifications.length > 0) {
+      const latestNotification = notifications[0]
+
+      // Only reload if this is a new notification
+      if (latestNotification.id !== lastNotificationIdRef.current) {
+        lastNotificationIdRef.current = latestNotification.id
+        reload()
+      }
+    }
+  }, [notifications, reload])
 
   const handleUnwatch = (gameId) => {
     unwatchGame(gameId)
