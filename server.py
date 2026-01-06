@@ -202,7 +202,7 @@ class Session:
                         obj['instance'].update(**updates)
                         save_state()
                         return {"status": "OK", "message": f"Team {tid} updated"}
-                    return {"status": "ERROR", "message": "Team not found"}
+                    return {"status": "ERROR", "message": f"Team {tid} not found for update"}
 
             elif cmd == "ADD_PLAYER":
                 tid = req.get("team_id")
@@ -216,7 +216,7 @@ class Session:
                         pid = obj['instance'].addplayer(pname, int(pno))
                         save_state()
                         return {"status": "OK", "message": f"Player added with ID {pid}"}
-                    return {"status": "ERROR", "message": "Team not found"}
+                    return {"status": "ERROR", "message": f"Team {tid} not found for adding player"}
 
             elif cmd == "REMOVE_PLAYER":
                 tid = req.get("team_id")
@@ -229,7 +229,7 @@ class Session:
                         obj['instance'].delplayer(pname)
                         save_state()
                         return {"status": "OK", "message": f"Player {pname} removed"}
-                    return {"status": "ERROR", "message": "Team not found"}
+                    return {"status": "ERROR", "message": f"Team {tid} not found for removing player"}
 
             elif cmd == "GET_PLAYERS":
                 tid = req.get("team_id")
@@ -240,7 +240,7 @@ class Session:
                         # Assuming Team.players is a dictionary of {name: number}
                         players = [{"name": name, "no": no} for name, no in obj['instance'].players.items()]
                         return {"status": "OK", "players": players}
-                    return {"status": "ERROR", "message": "Team not found"}
+                    return {"status": "ERROR", "message": f"Team {tid} not found for listing players"}
 
             elif cmd == "CREATE_GAME":
                 h_id = req.get("home_id")
