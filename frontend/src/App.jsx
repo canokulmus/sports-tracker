@@ -1,7 +1,7 @@
 // src/App.jsx
 import { useEffect, useState } from 'react'
 import { Routes, Route } from 'react-router-dom'
-import { DialogProvider } from './context/DialogContext'
+import { DialogProvider, useDialog } from './context/DialogContext'
 import { WatchProvider } from './context/WatchContext'
 import Dialog from './components/Dialog'
 import Layout from './components/Layout'
@@ -11,8 +11,49 @@ import CupsPage from './pages/CupsPage'
 import CupDetail from './pages/CupDetail'
 import LivePage from './pages/LivePage'
 import WatchedGamesPage from './pages/WatchedGamesPage'
-import { initializeWebSocket } from './services/api'
+import { initializeWebSocket, setGlobalErrorHandler, removeGlobalErrorHandler } from './services/api'
 import colors from './styles/colors'
+
+// Inner component that has access to Dialog context
+function AppContent() {
+  const { alert } = useDialog()
+
+  useEffect(() => {
+    // Set up global error handler
+    setGlobalErrorHandler((error, context) => {
+      console.error('[API Error]', error, context)
+
+      // Show error popup
+      alert({
+        title: 'Error',
+        message: error.message || 'An unexpected error occurred',
+        buttonText: 'OK'
+      })
+    })
+
+    // Cleanup on unmount
+    return () => {
+      removeGlobalErrorHandler()
+    }
+  }, [alert])
+
+  return (
+    <>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<LivePage />} />
+          <Route path="teams" element={<TeamsPage />} />
+          <Route path="games" element={<GamesPage />} />
+          <Route path="cups" element={<CupsPage />} />
+          <Route path="cups/:cupId" element={<CupDetail />} />
+          <Route path="live" element={<LivePage />} />
+          <Route path="watched" element={<WatchedGamesPage />} />
+        </Route>
+      </Routes>
+      <Dialog />
+    </>
+  )
+}
 
 function App() {
   const [wsConnected, setWsConnected] = useState(false)
@@ -97,18 +138,7 @@ function App() {
   return (
     <WatchProvider>
       <DialogProvider>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<LivePage />} />
-            <Route path="teams" element={<TeamsPage />} />
-            <Route path="games" element={<GamesPage />} />
-            <Route path="cups" element={<CupsPage />} />
-            <Route path="cups/:cupId" element={<CupDetail />} />
-            <Route path="live" element={<LivePage />} />
-            <Route path="watched" element={<WatchedGamesPage />} />
-          </Route>
-        </Routes>
-        <Dialog />
+        <AppContent />
       </DialogProvider>
     </WatchProvider>
   )

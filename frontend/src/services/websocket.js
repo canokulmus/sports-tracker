@@ -15,6 +15,9 @@ class WebSocketClient {
     this.notificationHandlers = [];
     this.requestCallbacks = new Map();
     this.requestId = 0;
+
+    // Global error handler
+    this.errorHandler = null;
   }
 
   connect() {
@@ -85,7 +88,12 @@ class WebSocketClient {
         if (data.status === 'OK') {
           resolve(data);
         } else if (data.status === 'ERROR') {
-          reject(new Error(data.message || 'Unknown error'));
+          const error = new Error(data.message || 'Unknown error');
+          // Call global error handler if registered
+          if (this.errorHandler) {
+            this.errorHandler(error, data);
+          }
+          reject(error);
         }
       }
     }
@@ -94,7 +102,11 @@ class WebSocketClient {
   sendCommand(command, params = {}) {
     return new Promise((resolve, reject) => {
       if (!this.connected) {
-        reject(new Error('WebSocket not connected'));
+        const error = new Error('WebSocket not connected');
+        if (this.errorHandler) {
+          this.errorHandler(error, { command, params });
+        }
+        reject(error);
         return;
       }
 
@@ -112,7 +124,11 @@ class WebSocketClient {
       setTimeout(() => {
         if (this.requestCallbacks.has(requestId)) {
           this.requestCallbacks.delete(requestId);
-          reject(new Error('Request timeout'));
+          const error = new Error('Request timeout');
+          if (this.errorHandler) {
+            this.errorHandler(error, { command, params });
+          }
+          reject(error);
         }
       }, 10000);
 
@@ -156,6 +172,16 @@ class WebSocketClient {
 
   isConnected() {
     return this.connected;
+  }
+
+  // Set global error handler
+  setErrorHandler(handler) {
+    this.errorHandler = handler;
+  }
+
+  // Remove error handler
+  removeErrorHandler() {
+    this.errorHandler = null;
   }
 }
 

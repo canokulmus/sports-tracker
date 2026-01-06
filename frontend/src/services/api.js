@@ -318,3 +318,14 @@ export const isWebSocketConnected = () => {
 export const onGameNotification = (handler) => {
   return wsClient.onNotification(handler);
 };
+
+// ==========================================
+// ERROR HANDLING
+// ==========================================
+export const setGlobalErrorHandler = (handler) => {
+  wsClient.setErrorHandler(handler);
+};
+
+export const removeGlobalErrorHandler = () => {
+  wsClient.removeErrorHandler();
+};
