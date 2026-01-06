@@ -134,6 +134,37 @@ class Session:
                             cups.append({"id": oid, "type": data['instance'].cup_type, "desc": str(data['instance'])})
                 return {"status": "OK", "cups": cups}
 
+            elif cmd == "GET_GAMES":
+                with repo_lock:
+                    games = []
+                    for oid, data in repository._objects.items():
+                        if isinstance(data['instance'], Game):
+                            g = data['instance']
+                            games.append({
+                                "id": oid,
+                                "home": g.home().team_name,
+                                "away": g.away().team_name,
+                                "state": g.state.name,
+                                "score": {"home": g.home_score, "away": g.away_score}
+                            })
+                return {"status": "OK", "games": games}
+
+            elif cmd == "SEARCH":
+                query = req.get("query")
+                if not query: return {"status": "ERROR", "message": "Missing 'query'"}
+
+                with repo_lock:
+                    results = []
+                    for oid, data in repository._objects.items():
+                        obj = data['instance']
+                        if query.lower() in str(obj).lower():
+                            results.append({
+                                "id": oid,
+                                "type": type(obj).__name__,
+                                "desc": str(obj)
+                            })
+                return {"status": "OK", "results": results}
+
             elif cmd == "CREATE_TEAM":
                 name = req.get("name")
                 if not name: return {"status": "ERROR", "message": "Missing 'name'"}
@@ -181,6 +212,17 @@ class Session:
                         return {"status": "OK", "message": f"Player {pname} removed"}
                     return {"status": "ERROR", "message": "Team not found"}
 
+            elif cmd == "GET_PLAYERS":
+                tid = req.get("team_id")
+                if tid is None: return {"status": "ERROR", "message": "Missing 'team_id'"}
+                with repo_lock:
+                    obj = repository._objects.get(int(tid))
+                    if obj and isinstance(obj['instance'], Team):
+                        # Assuming Team.players is a dictionary of {name: number}
+                        players = [{"name": name, "no": no} for name, no in obj['instance'].players.items()]
+                        return {"status": "OK", "players": players}
+                    return {"status": "ERROR", "message": "Team not found"}
+
             elif cmd == "CREATE_GAME":
                 h_id = req.get("home_id")
                 a_id = req.get("away_id")
@@ -211,17 +253,21 @@ class Session:
                 if "datetime" in updates:
                     try:
                         updates["datetime"] = datetime.fromisoformat(updates["datetime"])
-                    except ValueError:
+                    except (ValueError, TypeError):
                         return {"status": "ERROR", "message": "Invalid datetime format (use ISO)"}
 
                 with repo_lock:
                     # Resolve team IDs to objects if provided
                     if "home_id" in updates:
-                        h_data = repository._objects.get(int(updates.pop("home_id")))
-                        if h_data: updates["home"] = h_data["instance"]
+                        hid = updates.pop("home_id")
+                        h_data = repository._objects.get(int(hid))
+                        if not h_data: return {"status": "ERROR", "message": f"Home team {hid} not found"}
+                        updates["home"] = h_data["instance"]
                     if "away_id" in updates:
-                        a_data = repository._objects.get(int(updates.pop("away_id")))
-                        if a_data: updates["away"] = a_data["instance"]
+                        aid = updates.pop("away_id")
+                        a_data = repository._objects.get(int(aid))
+                        if not a_data: return {"status": "ERROR", "message": f"Away team {aid} not found"}
+                        updates["away"] = a_data["instance"]
 
                     game = self.find_game(int(gid))
                     if game:
@@ -273,6 +319,9 @@ class Session:
                 with repo_lock:
                     game = self.find_game(int(gid))
                     if game:
+                        if game.state == GameState.FINISHED:
+                            return {"status": "ERROR", "message": "Cannot start a finished game"}
+                        
                         game.start()
                         return {
                             "status": "OK", 
@@ -318,6 +367,10 @@ class Session:
                 with repo_lock:
                     game = self.find_game(int(gid))
                     if game:
+                        # Safety check: only allow scoring if the game is actually running
+                        if game.state != GameState.STARTED:
+                            return {"status": "ERROR", "message": f"Cannot score: Game is in {game.state.name} state"}
+                        
                         team_obj = game.home() if side == "HOME" else game.away()
                         game.score(int(pts), team_obj, player=player)
                         return {
@@ -416,12 +469,6 @@ class Session:
 
                     cup = obj['instance']
                     
-                    # Ensure the cup has a reference to the repo before generating playoffs
-                    # This handles cases where the server restarted and the repo reference was lost
-                    if not hasattr(cup, 'repo') or cup.repo is None:
-                        cup.repo = repository
-                    # -----------------------------
-
                     try:
                         # Capture the number of games before generation
                         count_before = len(cup.games)
@@ -454,6 +501,42 @@ class Session:
                         }
                     return {"status": "ERROR", "message": "Game not found"}
 
+            elif cmd == "LIST":
+                with repo_lock:
+                    results = repository.list()
+                    items = [{"id": r[0], "desc": r[1]} for r in results]
+                return {"status": "OK", "items": items}
+
+            elif cmd == "LIST_ATTACHED":
+                with repo_lock:
+                    results = repository.listattached(self.user)
+                    items = [{"id": r[0], "desc": r[1]} for r in results]
+                return {"status": "OK", "items": items}
+
+            elif cmd == "ATTACH":
+                oid = req.get("id")
+                if oid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+                with repo_lock:
+                    try:
+                        repository.attach(int(oid), self.user)
+                        if int(oid) not in self.attached_ids:
+                            self.attached_ids.append(int(oid))
+                        return {"status": "OK", "message": f"Attached to {oid}"}
+                    except ValueError as e:
+                        return {"status": "ERROR", "message": str(e)}
+
+            elif cmd == "DETACH":
+                oid = req.get("id")
+                if oid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+                with repo_lock:
+                    try:
+                        repository.detach(int(oid), self.user)
+                        if int(oid) in self.attached_ids:
+                            self.attached_ids.remove(int(oid))
+                        return {"status": "OK", "message": f"Detached from {oid}"}
+                    except ValueError as e:
+                        return {"status": "ERROR", "message": str(e)}
+
             elif cmd == "DELETE":
                 oid = req.get("id")
                 if oid is None: return {"status": "ERROR", "message": "Missing 'id'"}
@@ -476,7 +559,7 @@ class Session:
             else:
                 return {"status": "ERROR", "message": f"Unknown command: {cmd}"}
 
-        except (ValueError, KeyError) as e:
+        except (ValueError, KeyError, TypeError, AttributeError) as e:
             return {"status": "ERROR", "message": f"Invalid parameter or ID: {str(e)}"}
         except Exception as e:
             return {"status": "ERROR", "message": f"Internal Server Error: {str(e)}"}
@@ -541,16 +624,24 @@ def load_state():
     global repository
     if os.path.exists(SAVE_FILE):
         try:
-            with open(SAVE_FILE, 'rb') as f:
-                repository = pickle.load(f)
+            with repo_lock:
+                with open(SAVE_FILE, 'rb') as f:
+                    loaded_repo = pickle.load(f)
+                    if isinstance(loaded_repo, Repo):
+                        repository = loaded_repo
 
-            # Ensure _last_id is consistent with the highest existing ID
-            if repository._objects:
-                max_id = max(repository._objects.keys())
-                if repository._last_id < max_id:
-                    print(f"Migrating _last_id from {repository._last_id} to {max_id}")
-                    repository._last_id = max_id
-
+                # Ensure _last_id is consistent with the highest existing ID
+                if repository._objects:
+                    max_id = max(repository._objects.keys())
+                    if repository._last_id < max_id:
+                        print(f"Migrating _last_id from {repository._last_id} to {max_id}")
+                        repository._last_id = max_id
+                
+                # Restore repo references for objects that need them (e.g. Cups)
+                for data in repository._objects.values():
+                    if isinstance(data['instance'], Cup):
+                        data['instance'].repo = repository
+            
             print("Server state loaded from 'server_state.pkl'.")
         except Exception as e:
             print(f"Could not load state: {e}. Starting with a new repository.")
@@ -563,9 +654,12 @@ def save_state():
     """
     with repo_lock:
         try:
-            with open(SAVE_FILE, 'wb') as f:
+            # Use a temporary file for atomic write to prevent corruption
+            temp_file = f"{SAVE_FILE}.tmp"
+            with open(temp_file, 'wb') as f:
                 pickle.dump(repository, f)
-            print("Server state saved to 'server_state.pkl'.")
+            os.replace(temp_file, SAVE_FILE)
+            print(f"Server state saved to '{SAVE_FILE}'.")
         except Exception as e:
             print(f"Error saving state: {e}")
 

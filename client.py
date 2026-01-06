@@ -69,6 +69,42 @@ def receive_loop(sock, stop_event):
                     # if dict (ELIMINATION/GROUP)
                     elif isinstance(standings, dict):
                         print(json.dumps(standings, indent=4))
+                
+                if "items" in data:
+                    print("   -> Items:")
+                    for item in data['items']:
+                        print(f"      {item['id']}: {item['desc']}")
+
+                if "teams" in data:
+                    print("   -> Teams:")
+                    for t in data['teams']:
+                        print(f"      {t['id']}: {t['name']}")
+
+                if "cups" in data:
+                    print("   -> Cups:")
+                    for c in data['cups']:
+                        print(f"      {c['id']} ({c['type']}): {c['desc']}")
+
+                if "games" in data:
+                    print("   -> Games:")
+                    for g in data['games']:
+                        print(f"      {g['id']}: {g['home']} vs {g['away']} [{g['state']}] {g['score']['home']}-{g['score']['away']}")
+
+                if "players" in data:
+                    print("   -> Players:")
+                    for p in data['players']:
+                        print(f"      #{p['no']} {p['name']}")
+
+                if "stats" in data:
+                    print(json.dumps(data['stats'], indent=4))
+
+                if "gametree" in data:
+                    print(json.dumps(data['gametree'], indent=4))
+                
+                if "results" in data:
+                    print("   -> Results:")
+                    for r in data['results']:
+                        print(f"      [{r['type']}] {r['id']}: {r['desc']}")
 
                 # Restore the user input prompt.
                 sys.stdout.write("> ")
@@ -118,6 +154,27 @@ def parse_input_to_json(text):
                 k, v = item.split("=", 1)
                 payload[k] = v
 
+    elif cmd == "ADD_PLAYER":
+        if len(args) < 3:
+            print("Usage: ADD_PLAYER <team_id> <no> <name>")
+            return None
+        payload["team_id"] = args[0]
+        payload["no"] = args[1]
+        payload["name"] = " ".join(args[2:])
+
+    elif cmd == "REMOVE_PLAYER":
+        if len(args) < 2:
+            print("Usage: REMOVE_PLAYER <team_id> <name>")
+            return None
+        payload["team_id"] = args[0]
+        payload["name"] = " ".join(args[1:])
+
+    elif cmd == "GET_PLAYERS":
+        if len(args) < 1:
+            print("Usage: GET_PLAYERS <team_id>")
+            return None
+        payload["team_id"] = args[0]
+
     elif cmd == "CREATE_GAME":
         if len(args) < 2:
             print("Usage: CREATE_GAME <home_id> <away_id>")
@@ -134,6 +191,12 @@ def parse_input_to_json(text):
             if "=" in item:
                 k, v = item.split("=", 1)
                 payload[k] = v
+
+    elif cmd == "GET_GAME_STATS":
+        if len(args) < 1:
+            print("Usage: GET_GAME_STATS <id>")
+            return None
+        payload["id"] = args[0]
 
     elif cmd == "CREATE_CUP":
         if len(args) < 3:
@@ -196,11 +259,56 @@ def parse_input_to_json(text):
             return None
         payload["id"] = args[0]
 
+    elif cmd == "GET_GAMETREE":
+        if len(args) < 1:
+            print("Usage: GET_GAMETREE <cup_id>")
+            return None
+        payload["id"] = args[0]
+
     elif cmd == "GENERATE_PLAYOFFS":
         if len(args) < 1:
             print("Usage: GENERATE_PLAYOFFS <cup_id>")
             return None
         payload["id"] = args[0]
+
+    elif cmd == "LIST":
+        pass
+
+    elif cmd == "LIST_ATTACHED":
+        pass
+
+    elif cmd == "ATTACH":
+        if len(args) < 1:
+            print("Usage: ATTACH <id>")
+            return None
+        payload["id"] = args[0]
+
+    elif cmd == "DETACH":
+        if len(args) < 1:
+            print("Usage: DETACH <id>")
+            return None
+        payload["id"] = args[0]
+
+    elif cmd == "DELETE":
+        if len(args) < 1:
+            print("Usage: DELETE <id>")
+            return None
+        payload["id"] = args[0]
+
+    elif cmd == "SEARCH":
+        if len(args) < 1:
+            print("Usage: SEARCH <query>")
+            return None
+        payload["query"] = " ".join(args)
+
+    elif cmd == "GET_TEAMS":
+        pass
+
+    elif cmd == "GET_CUPS":
+        pass
+
+    elif cmd == "GET_GAMES":
+        pass
 
     elif cmd == "SAVE":
         pass  # No arguments needed for SAVE.
@@ -231,8 +339,12 @@ def main():
     print("  USER <name>")
     print("  CREATE_TEAM <name>")
     print("  UPDATE_TEAM <id> <key>=<value> ...")
+    print("  ADD_PLAYER <team_id> <no> <name>")
+    print("  REMOVE_PLAYER <team_id> <name>")
+    print("  GET_PLAYERS <team_id>")
     print("  CREATE_GAME <home_id> <away_id>")
     print("  UPDATE_GAME <id> <key>=<value> ...")
+    print("  GET_GAME_STATS <id>")
     print("  CREATE_CUP <type> <id1> <id2> ...")
     print("  WATCH <id>")
     print("  START <id>")
@@ -241,8 +353,16 @@ def main():
     print("  RESUME <id>")
     print("  END <id>")
     print("  GET_STANDINGS <cup_id>")
+    print("  GET_GAMETREE <cup_id>")
     print("  GET_CUP_GAMES <cup_id>")
     print("  GENERATE_PLAYOFFS <cup_id>")
+    print("  LIST")
+    print("  LIST_ATTACHED")
+    print("  ATTACH <id>")
+    print("  DETACH <id>")
+    print("  DELETE <id>")
+    print("  SEARCH <query>")
+    print("  GET_TEAMS / GET_CUPS / GET_GAMES")
     print("  SAVE")
     print("  exit")
 
