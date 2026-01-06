@@ -166,7 +166,7 @@ class Session:
 
             elif cmd == "SEARCH":
                 query = req.get("query")
-                if not query: return {"status": "ERROR", "message": "Missing 'query'"}
+                if not query: return {"status": "ERROR", "message": "Missing 'query' parameter for SEARCH command."}
 
                 with repo_lock:
                     results = []
@@ -182,7 +182,7 @@ class Session:
 
             elif cmd == "CREATE_TEAM":
                 name = req.get("name")
-                if not name: return {"status": "ERROR", "message": "Missing 'name'"}
+                if not name: return {"status": "ERROR", "message": "Missing 'name' parameter for CREATE_TEAM command."}
 
                 with repo_lock: # Ensure thread-safe creation.
                     tid = repository.create(type="team", name=name)
@@ -193,7 +193,7 @@ class Session:
             
             elif cmd == "UPDATE_TEAM":
                 tid = req.get("id")
-                if tid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+                if tid is None: return {"status": "ERROR", "message": "Missing 'id' parameter for UPDATE_TEAM command."}
 
                 updates = {k: v for k, v in req.items() if k not in ["command", "id", "requestId"]}
                 with repo_lock:
@@ -202,57 +202,57 @@ class Session:
                         obj['instance'].update(**updates)
                         save_state()
                         return {"status": "OK", "message": f"Team {tid} updated"}
-                    return {"status": "ERROR", "message": f"Team {tid} not found for update"}
+                    return {"status": "ERROR", "message": f"Team with ID {tid} not found for UPDATE_TEAM command."}
 
             elif cmd == "ADD_PLAYER":
                 tid = req.get("team_id")
                 pname = req.get("name")
                 pno = req.get("no")
                 if tid is None or not pname or pno is None:
-                    return {"status": "ERROR", "message": "Missing params"}
+                    return {"status": "ERROR", "message": "Missing 'team_id', 'name', or 'no' parameters for ADD_PLAYER command."}
                 with repo_lock:
                     obj = repository._objects.get(int(tid))
                     if obj and isinstance(obj['instance'], Team):
                         pid = obj['instance'].addplayer(pname, int(pno))
                         save_state()
                         return {"status": "OK", "message": f"Player added with ID {pid}"}
-                    return {"status": "ERROR", "message": f"Team {tid} not found for adding player"}
+                    return {"status": "ERROR", "message": f"Team with ID {tid} not found for ADD_PLAYER command."}
 
             elif cmd == "REMOVE_PLAYER":
                 tid = req.get("team_id")
                 pname = req.get("name")
                 if tid is None or not pname:
-                    return {"status": "ERROR", "message": "Missing 'team_id' or 'name'"}
+                    return {"status": "ERROR", "message": "Missing 'team_id' or 'name' parameters for REMOVE_PLAYER command."}
                 with repo_lock:
                     obj = repository._objects.get(int(tid))
                     if obj and isinstance(obj['instance'], Team):
                         obj['instance'].delplayer(pname)
                         save_state()
                         return {"status": "OK", "message": f"Player {pname} removed"}
-                    return {"status": "ERROR", "message": f"Team {tid} not found for removing player"}
+                    return {"status": "ERROR", "message": f"Team with ID {tid} not found for REMOVE_PLAYER command."}
 
             elif cmd == "GET_PLAYERS":
                 tid = req.get("team_id")
-                if tid is None: return {"status": "ERROR", "message": "Missing 'team_id'"}
+                if tid is None: return {"status": "ERROR", "message": "Missing 'team_id' parameter for GET_PLAYERS command."}
                 with repo_lock:
                     obj = repository._objects.get(int(tid))
                     if obj and isinstance(obj['instance'], Team):
                         # Team.players is Dict[int, Dict[str, Any]] -> {id: {"name": str, "no": int}}
                         players = [{"name": pdata["name"], "no": pdata["no"]} for pdata in obj['instance'].players.values()]
                         return {"status": "OK", "players": players}
-                    return {"status": "ERROR", "message": f"Team {tid} not found for listing players"}
+                    return {"status": "ERROR", "message": f"Team with ID {tid} not found for GET_PLAYERS command."}
 
             elif cmd == "CREATE_GAME":
                 h_id = req.get("home_id")
                 a_id = req.get("away_id")
                 if h_id is None or a_id is None:
-                    return {"status": "ERROR", "message": "Missing team IDs"}
+                    return {"status": "ERROR", "message": "Missing 'home_id' or 'away_id' parameters for CREATE_GAME command."}
 
                 with repo_lock:
                     h_data = repository._objects.get(int(h_id))
                     a_data = repository._objects.get(int(a_id))
                     if not h_data or not a_data:
-                        return {"status": "ERROR", "message": "Teams not found"}
+                        return {"status": "ERROR", "message": f"One or both teams (Home: {h_id}, Away: {a_id}) not found for CREATE_GAME command."}
 
                     gid = repository.create(
                         type="game",
@@ -265,7 +265,7 @@ class Session:
             
             elif cmd == "UPDATE_GAME":
                 gid = req.get("id")
-                if gid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+                if gid is None: return {"status": "ERROR", "message": "Missing 'id' parameter for UPDATE_GAME command."}
                 
                 updates = {k: v for k, v in req.items() if k not in ["command", "id"]}
                 
@@ -274,19 +274,19 @@ class Session:
                     try:
                         updates["datetime"] = datetime.fromisoformat(updates["datetime"])
                     except (ValueError, TypeError):
-                        return {"status": "ERROR", "message": "Invalid datetime format (use ISO)"}
+                        return {"status": "ERROR", "message": "Invalid datetime format for UPDATE_GAME command (use ISO format)."}
 
                 with repo_lock:
                     # Resolve team IDs to objects if provided
                     if "home_id" in updates:
                         hid = updates.pop("home_id")
                         h_data = repository._objects.get(int(hid))
-                        if not h_data: return {"status": "ERROR", "message": f"Home team {hid} not found"}
+                        if not h_data: return {"status": "ERROR", "message": f"Home team with ID {hid} not found for UPDATE_GAME command."}
                         updates["home"] = h_data["instance"]
                     if "away_id" in updates:
                         aid = updates.pop("away_id")
                         a_data = repository._objects.get(int(aid))
-                        if not a_data: return {"status": "ERROR", "message": f"Away team {aid} not found"}
+                        if not a_data: return {"status": "ERROR", "message": f"Away team with ID {aid} not found for UPDATE_GAME command."}
                         updates["away"] = a_data["instance"]
 
                     game = self.find_game(int(gid))
@@ -294,16 +294,16 @@ class Session:
                         game.update(**updates)
                         save_state()
                         return {"status": "OK", "message": f"Game {gid} updated"}
-                    return {"status": "ERROR", "message": "Game not found"}
+                    return {"status": "ERROR", "message": f"Game with ID {gid} not found for UPDATE_GAME command."}
 
             elif cmd == "WATCH":
                 oid = req.get("id")
-                if oid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+                if oid is None: return {"status": "ERROR", "message": "Missing 'id' parameter for WATCH command."}
 
                 with repo_lock:
                     oid = int(oid)
                     if oid not in repository._objects:
-                        return {"status": "ERROR", "message": "Object not found"}
+                        return {"status": "ERROR", "message": f"Object with ID {oid} not found for WATCH command."}
 
                     # Attach this session's observer to the game object.
                     instance = repository._objects[oid]['instance']
@@ -322,26 +322,26 @@ class Session:
                                 self.observer.update(game)
 
                         return {"status": "OK", "message": f"Watching {oid}"}
-                    return {"status": "ERROR", "message": "Object not watchable"}
+                    return {"status": "ERROR", "message": f"Object with ID {oid} is not watchable (must implement 'watch' method)."}
 
             elif cmd == "GET_GAME_STATS":
                 gid = req.get("id")
-                if gid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+                if gid is None: return {"status": "ERROR", "message": "Missing 'id' parameter for GET_GAME_STATS command."}
                 with repo_lock:
                     game = self.find_game(int(gid))
                     if game:
                         return {"status": "OK", "stats": game.stats()}
-                    return {"status": "ERROR", "message": "Game not found"}
+                    return {"status": "ERROR", "message": f"Game with ID {gid} not found for GET_GAME_STATS command."}
 
             elif cmd == "START":
                 gid = req.get("id")
-                if gid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+                if gid is None: return {"status": "ERROR", "message": "Missing 'id' parameter for START command."}
 
                 with repo_lock:
                     game = self.find_game(int(gid))
                     if game:
                         if game.state == GameState.ENDED:
-                            return {"status": "ERROR", "message": "Cannot start a finished game"}
+                            return {"status": "ERROR", "message": f"Cannot start game {gid} because it has already ended."}
 
                         game.start()
                         save_state()
@@ -349,11 +349,11 @@ class Session:
                             "status": "OK",
                             "message": f"Game started: {game.home().team_name} vs {game.away().team_name}"
                         }
-                    return {"status": "ERROR", "message": "Game not found"}
+                    return {"status": "ERROR", "message": f"Game with ID {gid} not found for START command."}
 
             elif cmd == "PAUSE":
                 gid = req.get("id")
-                if gid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+                if gid is None: return {"status": "ERROR", "message": "Missing 'id' parameter for PAUSE command."}
 
                 with repo_lock:
                     game = self.find_game(int(gid))
@@ -364,11 +364,11 @@ class Session:
                             "status": "OK",
                             "message": f"Game paused: {game.home().team_name} vs {game.away().team_name}"
                         }
-                    return {"status": "ERROR", "message": "Game not found"}
+                    return {"status": "ERROR", "message": f"Game with ID {gid} not found for PAUSE command."}
 
             elif cmd == "RESUME":
                 gid = req.get("id")
-                if gid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+                if gid is None: return {"status": "ERROR", "message": "Missing 'id' parameter for RESUME command."}
 
                 with repo_lock:
                     game = self.find_game(int(gid))
@@ -379,21 +379,21 @@ class Session:
                             "status": "OK",
                             "message": f"Game resumed: {game.home().team_name} vs {game.away().team_name}"
                         }
-                    return {"status": "ERROR", "message": "Game not found"}
+                    return {"status": "ERROR", "message": f"Game with ID {gid} not found for RESUME command."}
             elif cmd == "SCORE":
                 gid = req.get("id")
                 pts = req.get("points")
                 side = req.get("side", "").upper()
                 player = req.get("player")
                 if gid is None or pts is None or side not in ["HOME", "AWAY"]:
-                    return {"status": "ERROR", "message": "Invalid params"}
+                    return {"status": "ERROR", "message": "Invalid parameters for SCORE command (requires 'id', 'points', 'side'='HOME'/'AWAY')."}
 
                 with repo_lock:
                     game = self.find_game(int(gid))
                     if game:
                         # Safety check: only allow scoring if the game is actually running
                         if game.state != GameState.RUNNING:
-                            return {"status": "ERROR", "message": f"Cannot score: Game is in {game.state.name} state"}
+                            return {"status": "ERROR", "message": f"Cannot score in game {gid}: Game is in {game.state.name} state (must be RUNNING)."}
 
                         team_obj = game.home() if side == "HOME" else game.away()
                         game.score(int(pts), team_obj, player=player)
@@ -402,13 +402,13 @@ class Session:
                             "status": "OK",
                             "message": f"Score updated: {game.home().team_name} {game.home_score} - {game.away_score} {game.away().team_name}"
                         }
-                    return {"status": "ERROR", "message": "Game not found"}
+                    return {"status": "ERROR", "message": f"Game with ID {gid} not found for SCORE command."}
 
             elif cmd == "CREATE_CUP":
                 c_type = req.get("cup_type")
                 t_ids = req.get("team_ids")
                 if not c_type or not t_ids:
-                    return {"status": "ERROR", "message": "Missing 'cup_type' or 'team_ids'"}
+                    return {"status": "ERROR", "message": "Missing 'cup_type' or 'team_ids' parameters for CREATE_CUP command."}
 
                 with repo_lock:
                     # Resolve team IDs to Team objects
@@ -416,7 +416,7 @@ class Session:
                     for tid in t_ids:
                         obj_data = repository._objects.get(int(tid))
                         if not obj_data or not isinstance(obj_data['instance'], Team):
-                            return {"status": "ERROR", "message": f"Team ID {tid} not found or invalid"}
+                            return {"status": "ERROR", "message": f"Team ID {tid} not found or invalid during CREATE_CUP command."}
                         teams.append(obj_data['instance'])
 
                     try:
@@ -433,23 +433,23 @@ class Session:
                         save_state()
 
                     except ValueError as e:
-                        return {"status": "ERROR", "message": str(e)}
+                        return {"status": "ERROR", "message": f"Error creating cup: {str(e)}"}
 
                 return {"status": "OK", "id": cid, "message": "Cup created"}
 
             elif cmd == "GET_STANDINGS":
                 cid = req.get("id")
                 if cid is None:
-                    return {"status": "ERROR", "message": "Missing 'id'"}
+                    return {"status": "ERROR", "message": "Missing 'id' parameter for GET_STANDINGS command."}
 
                 with repo_lock:
                     obj_data = repository._objects.get(int(cid))
                     if not obj_data:
-                        return {"status": "ERROR", "message": "Object not found"}
+                        return {"status": "ERROR", "message": f"Object with ID {cid} not found for GET_STANDINGS command."}
 
                     cup = obj_data['instance']
                     if not isinstance(cup, Cup):
-                        return {"status": "ERROR", "message": "Object is not a cup"}
+                        return {"status": "ERROR", "message": f"Object with ID {cid} is not a Cup (found {type(cup).__name__}) for GET_STANDINGS command."}
 
                     # Calculate standings
                     standings = cup.standings()
@@ -458,25 +458,25 @@ class Session:
 
             elif cmd == "GET_GAMETREE":
                 cid = req.get("id")
-                if cid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+                if cid is None: return {"status": "ERROR", "message": "Missing 'id' parameter for GET_GAMETREE command."}
                 with repo_lock:
                     obj = repository._objects.get(int(cid))
                     if not obj or not isinstance(obj['instance'], Cup):
-                        return {"status": "ERROR", "message": "Cup not found"}
+                        return {"status": "ERROR", "message": f"Cup with ID {cid} not found for GET_GAMETREE command."}
                     try:
                         tree = obj['instance'].gametree()
                         return {"status": "OK", "gametree": tree}
                     except ValueError as e:
-                        return {"status": "ERROR", "message": str(e)}
+                        return {"status": "ERROR", "message": f"Error retrieving gametree for cup {cid}: {str(e)}"}
 
             elif cmd == "GET_CUP_GAMES":
                 cid = req.get("id")
-                if cid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+                if cid is None: return {"status": "ERROR", "message": "Missing 'id' parameter for GET_CUP_GAMES command."}
 
                 with repo_lock:
                     obj = repository._objects.get(int(cid))
                     if not obj or not isinstance(obj['instance'], Cup):
-                        return {"status": "ERROR", "message": "Cup not found"}
+                        return {"status": "ERROR", "message": f"Cup with ID {cid} not found for GET_CUP_GAMES command."}
 
                     cup = obj['instance']
                     # Return list of game IDs associated with this cup
@@ -486,12 +486,12 @@ class Session:
 
             elif cmd == "GENERATE_PLAYOFFS":
                 cid = req.get("id")
-                if cid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+                if cid is None: return {"status": "ERROR", "message": "Missing 'id' parameter for GENERATE_PLAYOFFS command."}
 
                 with repo_lock:
                     obj = repository._objects.get(int(cid))
                     if not obj or not isinstance(obj['instance'], Cup):
-                        return {"status": "ERROR", "message": "Cup not found"}
+                        return {"status": "ERROR", "message": f"Cup with ID {cid} not found for GENERATE_PLAYOFFS command."}
 
                     cup = obj['instance']
                     
@@ -506,7 +506,7 @@ class Session:
 
                         return {"status": "OK", "message": f"Playoffs generated. {new_games} new games created."}
                     except ValueError as e:
-                        return {"status": "ERROR", "message": str(e)}
+                        return {"status": "ERROR", "message": f"Error generating playoffs for cup {cid}: {str(e)}"}
 
             elif cmd == "SAVE":
                 save_state()
@@ -514,7 +514,7 @@ class Session:
 
             elif cmd == "END":
                 gid = req.get("id")
-                if gid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+                if gid is None: return {"status": "ERROR", "message": "Missing 'id' parameter for END command."}
 
                 with repo_lock:
                     game = self.find_game(int(gid))
@@ -525,7 +525,7 @@ class Session:
                             "status": "OK", 
                             "message": f"Game ended: {game.home().team_name} {game.home_score} - {game.away_score} {game.away().team_name}"
                         }
-                    return {"status": "ERROR", "message": "Game not found"}
+                    return {"status": "ERROR", "message": f"Game with ID {gid} not found for END command."}
 
             elif cmd == "LIST":
                 with repo_lock:
@@ -541,7 +541,7 @@ class Session:
 
             elif cmd == "ATTACH":
                 oid = req.get("id")
-                if oid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+                if oid is None: return {"status": "ERROR", "message": "Missing 'id' parameter for ATTACH command."}
                 with repo_lock:
                     try:
                         repository.attach(int(oid), self.user)
@@ -549,11 +549,11 @@ class Session:
                             self.attached_ids.append(int(oid))
                         return {"status": "OK", "message": f"Attached to {oid}"}
                     except ValueError as e:
-                        return {"status": "ERROR", "message": str(e)}
+                        return {"status": "ERROR", "message": f"Error attaching to object {oid}: {str(e)}"}
 
             elif cmd == "DETACH":
                 oid = req.get("id")
-                if oid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+                if oid is None: return {"status": "ERROR", "message": "Missing 'id' parameter for DETACH command."}
                 with repo_lock:
                     try:
                         repository.detach(int(oid), self.user)
@@ -561,11 +561,11 @@ class Session:
                             self.attached_ids.remove(int(oid))
                         return {"status": "OK", "message": f"Detached from {oid}"}
                     except ValueError as e:
-                        return {"status": "ERROR", "message": str(e)}
+                        return {"status": "ERROR", "message": f"Error detaching from object {oid}: {str(e)}"}
 
             elif cmd == "DELETE":
                 oid = req.get("id")
-                if oid is None: return {"status": "ERROR", "message": "Missing 'id'"}
+                if oid is None: return {"status": "ERROR", "message": "Missing 'id' parameter for DELETE command."}
                 with repo_lock:
                     try:
                         # Auto-detach current user to allow deletion if they are the only one
@@ -581,15 +581,15 @@ class Session:
                         save_state()
                         return {"status": "OK", "message": "Object deleted"}
                     except ValueError as e:
-                        return {"status": "ERROR", "message": str(e)}
+                        return {"status": "ERROR", "message": f"Error deleting object {oid}: {str(e)}"}
 
             else:
-                return {"status": "ERROR", "message": f"Unknown command: {cmd}"}
+                return {"status": "ERROR", "message": f"Unknown command received: '{cmd}'"}
 
         except (ValueError, KeyError, TypeError, AttributeError) as e:
-            return {"status": "ERROR", "message": f"Invalid parameter or ID: {str(e)}"}
+            return {"status": "ERROR", "message": f"Invalid parameter or ID processing command '{cmd}': {str(e)}"}
         except Exception as e:
-            return {"status": "ERROR", "message": f"Internal Server Error: {str(e)}"}
+            return {"status": "ERROR", "message": f"Internal Server Error processing command '{cmd}': {str(e)}"}
 
     def cleanup(self):
         """
@@ -629,7 +629,7 @@ def agent(websocket):
                 if response:
                     websocket.send(json.dumps(response))
             except json.JSONDecodeError:
-                err = {"status": "ERROR", "message": "Invalid JSON format"}
+                err = {"status": "ERROR", "message": "Invalid JSON format received from client."}
                 websocket.send(json.dumps(err))
 
     except (ConnectionClosedError, ConnectionClosedOK):
