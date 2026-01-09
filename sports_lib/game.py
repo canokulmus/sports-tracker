@@ -74,11 +74,17 @@ class Game:
         if obj in self._observers:
             self._observers.remove(obj)
 
+    # new
     def _notify(self) -> None:
         """Notifies all observers of an update."""
-        for observer in self._observers:
-            if hasattr(observer, "update"):
-                observer.update(self)
+        # Iterate over a copy to allow observers to unwatch themselves during update
+        for observer in list(self._observers):
+            if observer in self._observers and hasattr(observer, "update"):
+                try:
+                    observer.update(self)
+                except Exception:
+                    # Prevent a failing observer from crashing the game logic
+                    pass
 
     def start(self) -> None:
         """Transitions the game from READY to RUNNING state.
