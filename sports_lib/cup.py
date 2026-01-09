@@ -66,6 +66,7 @@ class Cup:
 
     def delete(self) -> None:
         """Deletes the cup and cleans up resources."""
+        self._observers.clear()
         # Cascade deletion to the repository for managed games
         if self.repo:
             for game in list(self.games):

@@ -660,16 +660,20 @@ class Session:
 
                             # Delete all games first
                             for gid in game_ids_to_delete:
-                                if gid in self.attached_ids:
+                                # Attempt to detach user if attached (handles persistence across restarts)
+                                if gid in repository._objects:
                                     repository.detach(gid, self.user)
+                                if gid in self.attached_ids:
                                     self.attached_ids.remove(gid)
                                 if gid in self.watched_ids:
                                     self.watched_ids.remove(gid)
                                 repository.delete(gid)
 
                         # Auto-detach current user to allow deletion if they are the only one
-                        if int(oid) in self.attached_ids:
+                        # Attempt to detach user if attached (handles persistence across restarts)
+                        if obj_data:
                             repository.detach(int(oid), self.user)
+                        if int(oid) in self.attached_ids:
                             self.attached_ids.remove(int(oid))
 
                         repository.delete(int(oid))

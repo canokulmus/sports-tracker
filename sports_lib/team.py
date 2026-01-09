@@ -72,6 +72,10 @@ class Team:
         Returns:
             int: The unique ID assigned to the player.
         """
+        for p in self.players.values():
+            if p["no"] == no:
+                raise ValueError(f"Jersey number {no} is already taken by {p['name']}.")
+
         self._player_id_counter += 1
         player_id = self._player_id_counter
         self.players[player_id] = {"name": name, "no": no}
