@@ -184,13 +184,14 @@ class Cup:
 
     def _create_game_instance(self, home, away, datetime, group=None) -> Game:
         """Helper to create a game via Repo if available, or standalone otherwise."""
+        game = None
         if self.repo:
             # SERVER MODE: Register with Repo to get a Global ID
             game_id = self.repo.create(
                 type="game", home=home, away=away, datetime=datetime, group=group
             )
             # Fetch the actual game object back from the repo
-            return self.repo._objects[game_id]["instance"]
+            game = self.repo._objects[game_id]["instance"]
         else:
             # STANDALONE MODE: Use internal counter (for unit tests)
             game = Game(
@@ -201,7 +202,39 @@ class Cup:
                 group=group,
             )
             self._game_id_counter += 1
-            return game
+
+        # Attach existing cup observers to the new game
+        # This ensures that if games are generated dynamically (e.g. Playoffs),
+        # existing observers start watching them immediately.
+        for entry in self._observers:
+            observer = entry["observer"]
+            params = entry["params"]
+
+            # Check if game matches params
+            matches = True
+            if params:
+                tname = params.get("tname")
+                group_param = params.get("group")
+                between = params.get("between")
+
+                if tname:
+                    if not (game.home().team_name.lower() == tname.lower() or
+                            game.away().team_name.lower() == tname.lower()):
+                        matches = False
+
+                if group_param and matches:
+                    if game.group != group_param:
+                        matches = False
+
+                if between and matches:
+                    s, e = between
+                    if not (s <= game.datetime <= e):
+                        matches = False
+
+            if matches:
+                game.watch(observer)
+
+        return game
 
     def search(
         self,
