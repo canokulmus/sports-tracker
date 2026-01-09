@@ -30,6 +30,8 @@ function CupsPage() {
   const navigate = useNavigate()
   const [newCupName, setNewCupName] = useState('')
   const [cupType, setCupType] = useState('LEAGUE')
+  const [numGroups, setNumGroups] = useState(4)
+  const [playoffTeams, setPlayoffTeams] = useState(8)
   const { alert, confirm } = useDialog()
 
   const { value: showForm, toggle: toggleForm } = useToggle(false)
@@ -61,9 +63,29 @@ function CupsPage() {
       return
     }
 
-    await cupApi.create(newCupName, cupType, selectedTeamIds)
+    // Validation for GROUP tournaments
+    if (cupType === 'GROUP') {
+      if (selectedTeamIds.length < numGroups * 2) {
+        alert({
+          title: 'Invalid Configuration',
+          message: `You need at least ${numGroups * 2} teams for ${numGroups} groups (minimum 2 teams per group)!`,
+        })
+        return
+      }
+      if (playoffTeams > selectedTeamIds.length) {
+        alert({
+          title: 'Invalid Configuration',
+          message: `Playoff teams (${playoffTeams}) cannot exceed total teams (${selectedTeamIds.length})!`,
+        })
+        return
+      }
+    }
+
+    await cupApi.create(newCupName, cupType, selectedTeamIds, numGroups, playoffTeams)
     setNewCupName('')
     setCupType('LEAGUE')
+    setNumGroups(4)
+    setPlayoffTeams(8)
     toggleForm()
     reload()
   }
@@ -131,6 +153,39 @@ function CupsPage() {
                 </select>
               </div>
             </div>
+
+            {cupType === 'GROUP' && (
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">Number of Groups</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    min="2"
+                    max="8"
+                    value={numGroups}
+                    onChange={(e) => setNumGroups(parseInt(e.target.value) || 2)}
+                  />
+                  <small className="form-help">
+                    Teams will be divided into {numGroups} groups
+                  </small>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Playoff Teams</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    min="2"
+                    max="32"
+                    value={playoffTeams}
+                    onChange={(e) => setPlayoffTeams(parseInt(e.target.value) || 2)}
+                  />
+                  <small className="form-help">
+                    Top teams advancing to playoffs
+                  </small>
+                </div>
+              </div>
+            )}
 
             <div className="form-group">
               <label className="form-label">

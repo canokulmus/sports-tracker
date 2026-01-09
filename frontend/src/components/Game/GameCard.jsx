@@ -20,6 +20,7 @@ function GameCard({
   onEnd,
   onScore,
   onDelete,
+  onClick,
   variant = 'default',
 }) {
   const isMobile = useMediaQuery(mediaQueries.mobile)
@@ -60,11 +61,26 @@ function GameCard({
   const isEnded = state === 'ENDED'
   const isLive = isRunning || isPaused
 
-  const handleStart = () => onStart?.(id)
-  const handlePause = () => onPause?.(id)
-  const handleResume = () => onResume?.(id)
-  const handleEnd = () => onEnd?.(id)
-  const handleDelete = () => onDelete?.(id)
+  const handleStart = (e) => {
+    e?.stopPropagation()
+    onStart?.(id)
+  }
+  const handlePause = (e) => {
+    e?.stopPropagation()
+    onPause?.(id)
+  }
+  const handleResume = (e) => {
+    e?.stopPropagation()
+    onResume?.(id)
+  }
+  const handleEnd = (e) => {
+    e?.stopPropagation()
+    onEnd?.(id)
+  }
+  const handleDelete = (e) => {
+    e?.stopPropagation()
+    onDelete?.(id)
+  }
   const handleScore = (side, playerName) => onScore?.(id, side, playerName)
 
   const cardStyle = {
@@ -97,8 +113,21 @@ function GameCard({
 
   const cardClasses = `game-card-hover ${isLive ? 'game-card-live' : ''}`
 
+  const handleCardClick = () => {
+    if (onClick) {
+      onClick(game.id)
+    }
+  }
+
   return (
-    <div style={cardStyle} className={cardClasses}>
+    <div
+      style={{
+        ...cardStyle,
+        ...(onClick ? { cursor: 'pointer' } : {})
+      }}
+      className={cardClasses}
+      onClick={handleCardClick}
+    >
       {/* Header */}
       <div style={styles.header}>
         <div style={styles.headerLeft}>

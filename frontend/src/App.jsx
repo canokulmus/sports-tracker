@@ -7,6 +7,7 @@ import Dialog from './components/Dialog'
 import Layout from './components/Layout'
 import TeamsPage from './pages/TeamsPage'
 import GamesPage from './pages/GamesPage'
+import GameDetail from './pages/GameDetail'
 import CupsPage from './pages/CupsPage'
 import CupDetail from './pages/CupDetail'
 import LivePage from './pages/LivePage'
@@ -44,6 +45,7 @@ function AppContent() {
           <Route index element={<LivePage />} />
           <Route path="teams" element={<TeamsPage />} />
           <Route path="games" element={<GamesPage />} />
+          <Route path="games/:gameId" element={<GameDetail />} />
           <Route path="cups" element={<CupsPage />} />
           <Route path="cups/:cupId" element={<CupDetail />} />
           <Route path="live" element={<LivePage />} />

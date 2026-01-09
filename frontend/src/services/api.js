@@ -13,6 +13,44 @@ const mapGameState = (backendState) => {
 
 // Helper to transform backend game to frontend format
 const transformGame = (backendGame) => {
+  // Parse timeline to add minute information to scorers
+  const timeline = backendGame.timeline || [];
+  const scorersWithMinutes = { home: [], away: [] };
+
+  // Process timeline to extract goal events with minutes
+  if (timeline.length > 0) {
+    const goalsByPlayer = { home: {}, away: {} };
+
+    timeline.forEach(([timeStr, teamType, playerName, points]) => {
+      if (points > 0) {
+        const side = teamType.toLowerCase() === 'home' ? 'home' : 'away';
+
+        if (!goalsByPlayer[side][playerName]) {
+          goalsByPlayer[side][playerName] = { goals: 0, minutes: [] };
+        }
+
+        goalsByPlayer[side][playerName].goals += points;
+        goalsByPlayer[side][playerName].minutes.push(timeStr);
+      }
+    });
+
+    // Convert to scorers format
+    ['home', 'away'].forEach(side => {
+      Object.entries(goalsByPlayer[side]).forEach(([playerName, data]) => {
+        scorersWithMinutes[side].push({
+          name: playerName,
+          goals: data.goals,
+          minutes: data.minutes // Array of time strings like "12:34.56"
+        });
+      });
+    });
+  }
+
+  // Fallback to backend scorers if timeline is empty
+  const finalScorers = timeline.length > 0
+    ? scorersWithMinutes
+    : backendGame.scorers || { home: [], away: [] };
+
   return {
     id: backendGame.id,
     home: {
@@ -28,7 +66,8 @@ const transformGame = (backendGame) => {
       home: backendGame.score.home,
       away: backendGame.score.away
     },
-    scorers: backendGame.scorers || { home: [], away: [] },
+    scorers: finalScorers,
+    timeline: timeline,
     datetime: backendGame.datetime || new Date().toISOString(),
     group: backendGame.group || null
   };
@@ -115,16 +154,41 @@ export const gameApi = {
     const game = await gameApi.getById(gameId);
     if (!game) return { home: [], away: [] };
 
-    // Get players from teams
-    const response = await wsClient.sendCommand('GET_PLAYERS', {
-      team_id: game.home.id
-    });
-    const homePlayers = (response.players || []).map(p => p.name);
+    // Check if teams are placeholders (no valid ID or name starts with "Winner of")
+    const homeIsPlaceholder = !game.home.id || game.home.name?.startsWith('Winner of');
+    const awayIsPlaceholder = !game.away.id || game.away.name?.startsWith('Winner of');
 
-    const awayResponse = await wsClient.sendCommand('GET_PLAYERS', {
-      team_id: game.away.id
-    });
-    const awayPlayers = (awayResponse.players || []).map(p => p.name);
+    // Return empty arrays for placeholder teams
+    if (homeIsPlaceholder && awayIsPlaceholder) {
+      return { home: [], away: [] };
+    }
+
+    let homePlayers = [];
+    let awayPlayers = [];
+
+    // Get players from home team if it's real
+    if (!homeIsPlaceholder) {
+      try {
+        const response = await wsClient.sendCommand('GET_PLAYERS', {
+          team_id: game.home.id
+        });
+        homePlayers = (response.players || []).map(p => p.name);
+      } catch (err) {
+        console.warn('Failed to load home team players:', err);
+      }
+    }
+
+    // Get players from away team if it's real
+    if (!awayIsPlaceholder) {
+      try {
+        const awayResponse = await wsClient.sendCommand('GET_PLAYERS', {
+          team_id: game.away.id
+        });
+        awayPlayers = (awayResponse.players || []).map(p => p.name);
+      } catch (err) {
+        console.warn('Failed to load away team players:', err);
+      }
+    }
 
     return {
       home: homePlayers,
@@ -202,12 +266,29 @@ export const cupApi = {
     return response.gametree;
   },
 
-  create: async (name, type, teamIds) => {
-    const response = await wsClient.sendCommand('CREATE_CUP', {
+  getCupGames: async (id) => {
+    const response = await wsClient.sendCommand('GET_CUP_GAMES', { id });
+    const gameIds = response.game_ids || [];
+
+    // Fetch full game details for each game ID
+    const allGames = await gameApi.getAll();
+    return allGames.filter(game => gameIds.includes(game.id));
+  },
+
+  create: async (name, type, teamIds, numGroups = 4, playoffTeams = 8) => {
+    const payload = {
       name: name,
       cup_type: type,
       team_ids: teamIds
-    });
+    };
+
+    // Only add GROUP-specific parameters if type is GROUP
+    if (type === 'GROUP') {
+      payload.num_groups = numGroups;
+      payload.playoff_teams = playoffTeams;
+    }
+
+    const response = await wsClient.sendCommand('CREATE_CUP', payload);
 
     return {
       id: response.id,
@@ -245,19 +326,18 @@ export const watchApi = {
   },
 
   unwatch: async (gameId) => {
-    // Backend doesn't have UNWATCH command, just remove from local state
+    await wsClient.sendCommand('UNWATCH', { id: gameId });
     return { success: true, gameId };
   },
 
   getWatchedGames: async () => {
-    // Get from localStorage (frontend manages watched games)
-    const watched = JSON.parse(localStorage.getItem('watchedGames') || '[]');
-    return watched;
+    const response = await wsClient.sendCommand('GET_WATCHED_GAMES');
+    return (response.games || []).map(transformGame);
   },
 
   isWatching: async (gameId) => {
     const watched = await watchApi.getWatchedGames();
-    return watched.includes(gameId);
+    return watched.some(game => game.id === gameId);
   },
 };
 

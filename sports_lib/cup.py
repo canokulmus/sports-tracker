@@ -1065,10 +1065,50 @@ class Cup:
     def _handle_game_notification(self, game: Game) -> None:
         """Internal observer handler to trigger playoffs when group stage ends."""
         if game.state == GameState.ENDED:
+            # Update any downstream games that depend on this game's winner
+            self._update_downstream_games(game)
+
             if self.cup_type in [CupType.GROUP, CupType.GROUP2] and not self.playoff_games:
                 # Check if all group games are finished
                 if all(g.state == GameState.ENDED for g in self.games if g.group):
                     self.generate_playoffs()
+
+    def _update_downstream_games(self, completed_game: Game) -> None:
+        """Updates any games that have this game as a placeholder source.
+
+        When a game finishes, finds all downstream games that reference this game
+        in their PlaceholderTeam and replaces the placeholder with the actual winner.
+        """
+        completed_game_id = completed_game.id()
+        winner = self._get_game_winner(completed_game)
+
+        if not winner:
+            # Draw or no winner, cannot update downstream
+            return
+
+        # Find all games that depend on this game's winner
+        for game in self.games:
+            updated = False
+
+            # Check home team
+            if isinstance(game.home_, PlaceholderTeam):
+                placeholder: PlaceholderTeam = game.home_
+                if completed_game_id in placeholder.source_games:
+                    # This game's home team is waiting for our completed game's winner
+                    game.update(home=winner)
+                    updated = True
+
+            # Check away team
+            if isinstance(game.away_, PlaceholderTeam):
+                placeholder: PlaceholderTeam = game.away_
+                if completed_game_id in placeholder.source_games:
+                    # This game's away team is waiting for our completed game's winner
+                    game.update(away=winner)
+                    updated = True
+
+            # Notify observers if game was updated
+            if updated:
+                game._notify()
 
     def _find_game_by_id(self, game_id: int) -> Optional[Game]:
         """Finds a game by its ID in the cup's games list."""

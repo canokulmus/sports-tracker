@@ -185,6 +185,20 @@ class Session:
                                 if tdata['instance'] is g.away_:
                                     away_id = tid
 
+                            # Get scorers from stats
+                            stats = g.stats()
+                            home_scorers = []
+                            away_scorers = []
+
+                            # Extract scorers from players (those with score > 0)
+                            for player_name, score in stats['Home']['Players'].items():
+                                if score > 0:
+                                    home_scorers.append({"name": player_name, "goals": score})
+
+                            for player_name, score in stats['Away']['Players'].items():
+                                if score > 0:
+                                    away_scorers.append({"name": player_name, "goals": score})
+
                             games.append({
                                 "id": oid,
                                 "home": g.home().team_name,
@@ -192,7 +206,9 @@ class Session:
                                 "home_id": home_id,
                                 "away_id": away_id,
                                 "state": g.state.name,
-                                "score": {"home": g.home_score, "away": g.away_score}
+                                "score": {"home": g.home_score, "away": g.away_score},
+                                "scorers": {"home": home_scorers, "away": away_scorers},
+                                "timeline": g.timeline
                             })
                 return {"status": "OK", "games": games}
 
@@ -356,6 +372,67 @@ class Session:
                         return {"status": "OK", "message": f"Watching {oid}"}
                     return {"status": "ERROR", "message": f"Object with ID {oid} is not watchable (must implement 'watch' method)."}
 
+            elif cmd == "UNWATCH":
+                oid = req.get("id")
+                if oid is None: return {"status": "ERROR", "message": "Missing 'id' parameter for UNWATCH command."}
+
+                with repo_lock:
+                    oid = int(oid)
+                    if oid not in repository._objects:
+                        return {"status": "ERROR", "message": f"Object with ID {oid} not found for UNWATCH command."}
+
+                    # Remove this session's observer from the object
+                    instance = repository._objects[oid]['instance']
+                    if hasattr(instance, 'unwatch'):
+                        instance.unwatch(self.observer)
+                        if oid in self.watched_ids:
+                            self.watched_ids.remove(oid)
+                        return {"status": "OK", "message": f"Unwatched {oid}"}
+                    return {"status": "ERROR", "message": f"Object with ID {oid} is not watchable (must implement 'unwatch' method)."}
+
+            elif cmd == "GET_WATCHED_GAMES":
+                with repo_lock:
+                    watched_games = []
+                    for oid in self.watched_ids:
+                        if oid in repository._objects:
+                            instance = repository._objects[oid]['instance']
+                            if isinstance(instance, Game):
+                                # Find team IDs
+                                home_id = None
+                                away_id = None
+                                for tid, tdata in repository._objects.items():
+                                    if tdata['instance'] is instance.home_:
+                                        home_id = tid
+                                    if tdata['instance'] is instance.away_:
+                                        away_id = tid
+
+                                # Get scorers from stats
+                                stats = instance.stats()
+                                home_scorers = []
+                                away_scorers = []
+
+                                # Extract scorers from players (those with score > 0)
+                                for player_name, score in stats['Home']['Players'].items():
+                                    if score > 0:
+                                        home_scorers.append({"name": player_name, "goals": score})
+
+                                for player_name, score in stats['Away']['Players'].items():
+                                    if score > 0:
+                                        away_scorers.append({"name": player_name, "goals": score})
+
+                                watched_games.append({
+                                    "id": oid,
+                                    "home": instance.home().team_name,
+                                    "away": instance.away().team_name,
+                                    "home_id": home_id,
+                                    "away_id": away_id,
+                                    "state": instance.state.name,
+                                    "score": {"home": instance.home_score, "away": instance.away_score},
+                                    "scorers": {"home": home_scorers, "away": away_scorers},
+                                    "timeline": instance.timeline
+                                })
+                    return {"status": "OK", "games": watched_games}
+
             elif cmd == "GET_GAME_STATS":
                 gid = req.get("id")
                 if gid is None: return {"status": "ERROR", "message": "Missing 'id' parameter for GET_GAME_STATS command."}
@@ -440,6 +517,9 @@ class Session:
                 c_type = req.get("cup_type")
                 c_name = req.get("name", "")
                 t_ids = req.get("team_ids")
+                num_groups = req.get("num_groups", 4)  # Default: 4 groups
+                playoff_teams = req.get("playoff_teams", 8)  # Default: 8 teams
+
                 if not c_type or not t_ids:
                     return {"status": "ERROR", "message": "Missing 'cup_type' or 'team_ids' parameters for CREATE_CUP command."}
 
@@ -453,12 +533,20 @@ class Session:
                         teams.append(obj_data['instance'])
 
                     try:
-                        cid = repository.create(
-                            type="cup",
-                            teams=teams,
-                            cup_type=c_type,
-                            interval=timedelta(days=1),
-                        )
+                        # Prepare kwargs for Cup creation
+                        cup_kwargs = {
+                            "type": "cup",
+                            "teams": teams,
+                            "cup_type": c_type,
+                            "interval": timedelta(days=1),
+                        }
+
+                        # Add GROUP-specific parameters if applicable
+                        if c_type in ["GROUP", "GROUP2"]:
+                            cup_kwargs["num_groups"] = int(num_groups)
+                            cup_kwargs["playoff_teams"] = int(playoff_teams)
+
+                        cid = repository.create(**cup_kwargs)
 
                         # Store cup name in metadata
                         if 'metadata' not in repository._objects[cid]:
@@ -508,13 +596,33 @@ class Session:
                                 "points": row[6]
                             })
                     elif isinstance(raw_standings, dict):
-                        # GROUP format: dict with group names
+                        # GROUP format: nested dict with {Groups: {A: [...], B: [...]}, Playoffs: {...}}
                         standings = {}
-                        for group_name, group_standings in raw_standings.items():
-                            if isinstance(group_standings, list):
-                                standings[group_name] = []
-                                for row in group_standings:
-                                    standings[group_name].append({
+                        for top_level_key, top_level_value in raw_standings.items():
+                            if isinstance(top_level_value, dict):
+                                # This is Groups or similar nested structure
+                                standings[top_level_key] = {}
+                                for group_name, group_standings in top_level_value.items():
+                                    if isinstance(group_standings, list):
+                                        standings[top_level_key][group_name] = []
+                                        for row in group_standings:
+                                            standings[top_level_key][group_name].append({
+                                                "team": row[0],
+                                                "played": row[1] + row[2] + row[3],
+                                                "won": row[1],
+                                                "draw": row[2],
+                                                "lost": row[3],
+                                                "gf": row[4],
+                                                "ga": row[5],
+                                                "points": row[6]
+                                            })
+                                    else:
+                                        standings[top_level_key][group_name] = group_standings
+                            elif isinstance(top_level_value, list):
+                                # Direct list of tuples
+                                standings[top_level_key] = []
+                                for row in top_level_value:
+                                    standings[top_level_key].append({
                                         "team": row[0],
                                         "played": row[1] + row[2] + row[3],
                                         "won": row[1],
@@ -525,7 +633,7 @@ class Session:
                                         "points": row[6]
                                     })
                             else:
-                                standings[group_name] = group_standings
+                                standings[top_level_key] = top_level_value
                     else:
                         standings = raw_standings
 
