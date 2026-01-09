@@ -1025,27 +1025,40 @@ class Cup:
         else:
             game_ids_str = ", ".join(str(g) for g in source_games)
 
-            # If both games ended, determine aggregate winner
-            all_ended = True
+            # Check if all games ended and retrieve them
+            games = []
             for game_id in source_games:
                 game = self._find_game_by_id(game_id)
                 if not game or game.state != GameState.ENDED:
-                    all_ended = False
-                    break
+                    return f"Winner of Games [{game_ids_str}]"
+                games.append(game)
 
-            if all_ended and len(source_games) == 2:
-                g1 = self._find_game_by_id(source_games[0])
-                g2 = self._find_game_by_id(source_games[1])
-                if g1 and g2:
-                    # Team A (g1 home) vs Team B (g1 away)
-                    team_a, team_b = g1.home(), g1.away()
-                    score_a = g1.home_score + g2.away_score
-                    score_b = g1.away_score + g2.home_score
-                    
-                    if score_a > score_b:
-                        return self._resolve_placeholder(team_a)
-                    elif score_b > score_a:
-                        return self._resolve_placeholder(team_b)
+            if len(games) == 2:
+                g1 = games[0]
+                g2 = games[1]
+
+                # Robust aggregate score calculation
+                team_a = g1.home()
+                team_b = g1.away()
+
+                score_a = g1.home_score
+                score_b = g1.away_score
+
+                # Add scores from g2 based on team identity
+                if g2.home() == team_a:
+                    score_a += g2.home_score
+                elif g2.away() == team_a:
+                    score_a += g2.away_score
+
+                if g2.home() == team_b:
+                    score_b += g2.home_score
+                elif g2.away() == team_b:
+                    score_b += g2.away_score
+
+                if score_a > score_b:
+                    return self._resolve_placeholder(team_a)
+                elif score_b > score_a:
+                    return self._resolve_placeholder(team_b)
 
             return f"Winner of Games [{game_ids_str}]"
 
