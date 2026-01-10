@@ -29,7 +29,7 @@ class WebSocketClient {
           console.log('[WebSocket] Connected to server');
           this.connected = true;
           this.reconnectAttempts = 0;
-          resolve();
+          resolve(true);
         };
 
         this.ws.onmessage = (event) => {

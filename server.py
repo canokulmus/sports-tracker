@@ -24,6 +24,7 @@ repo_lock = threading.RLock()
 
 # User management: Store registered users
 registered_users = set()  # Set of usernames
+user_watches = {}  # Username -> Set[int]
 users_lock = threading.RLock()
 
 
@@ -37,8 +38,19 @@ class SocketObserver:
     def __init__(self, message_queue: queue.Queue):
         self.message_queue = message_queue
 
+    def __getstate__(self):
+        # Prevent pickling of the queue, which causes save_state to fail
+        return {}
+
+    def __setstate__(self, state):
+        # Restore with dummy values; these observers are dead upon restore
+        self.message_queue = None
+
     def update(self, game: Any) -> None:
         """Constructs a game update notification and adds it to the client's message queue."""
+        if not getattr(self, 'message_queue', None):
+            return
+
         try:
             payload = {
                 "type": "NOTIFICATION",
@@ -132,7 +144,33 @@ class Session:
                     # Set the session user
                     self.user = username
 
-                return {"status": "OK", "username": username, "message": f"Logged in as {username}"}
+                    # Restore watched games
+                    watches = user_watches.get(self.user, set()).copy()
+                    print(f"DEBUG: Restoring watches for user '{self.user}': {watches}")
+
+                if watches:
+                    with repo_lock:
+                        for oid in watches:
+                            if oid in repository._objects:
+                                instance = repository._objects[oid]['instance']
+                                if hasattr(instance, 'watch'):
+                                    if oid not in self.watched_ids:
+                                        instance.watch(self.observer)
+                                        self.watched_ids.append(oid)
+                                        
+                                        # Send immediate update
+                                        if isinstance(instance, Game):
+                                            self.observer.update(instance)
+                                        if isinstance(instance, Cup):
+                                            for game in instance.games:
+                                                self.observer.update(game)
+
+                return {
+                    "status": "OK", 
+                    "username": username, 
+                    "message": f"Logged in as {username}",
+                    "watched_ids": self.watched_ids
+                }
 
             elif cmd == "USER":
                 self.user = req.get("username", "Anonymous")
@@ -228,7 +266,9 @@ class Session:
                                 "state": g.state.name,
                                 "score": {"home": g.home_score, "away": g.away_score},
                                 "scorers": {"home": home_scorers, "away": away_scorers},
-                                "timeline": g.timeline
+                                "timeline": g.timeline,
+                                "datetime": g.datetime.isoformat() if g.datetime and hasattr(g.datetime, 'isoformat') else str(g.datetime) if g.datetime else None,
+                                "group": g.group
                             })
                 return {"status": "OK", "games": games}
 
@@ -380,6 +420,14 @@ class Session:
                         if oid not in self.watched_ids:
                             self.watched_ids.append(oid)
                         
+                        # Persist watch for user
+                        if self.user != "Anonymous":
+                            with users_lock:
+                                if self.user not in user_watches:
+                                    user_watches[self.user] = set()
+                                user_watches[self.user].add(oid)
+                                save_state()
+
                         # If it's a game, send immediate update so client has initial state
                         if isinstance(instance, Game):
                             self.observer.update(instance)
@@ -407,6 +455,14 @@ class Session:
                         instance.unwatch(self.observer)
                         if oid in self.watched_ids:
                             self.watched_ids.remove(oid)
+                        
+                        # Remove persistence
+                        if self.user != "Anonymous":
+                            with users_lock:
+                                if self.user in user_watches and oid in user_watches[self.user]:
+                                    user_watches[self.user].remove(oid)
+                                    save_state()
+
                         return {"status": "OK", "message": f"Unwatched {oid}"}
                     return {"status": "ERROR", "message": f"Object with ID {oid} is not watchable (must implement 'unwatch' method)."}
 
@@ -449,7 +505,9 @@ class Session:
                                     "state": instance.state.name,
                                     "score": {"home": instance.home_score, "away": instance.away_score},
                                     "scorers": {"home": home_scorers, "away": away_scorers},
-                                    "timeline": instance.timeline
+                                    "timeline": instance.timeline,
+                                    "datetime": instance.datetime.isoformat() if instance.datetime and hasattr(instance, 'isoformat') else str(instance.datetime) if instance.datetime else None,
+                                    "group": instance.group
                                 })
                     return {"status": "OK", "games": watched_games}
 
@@ -682,10 +740,49 @@ class Session:
                         return {"status": "ERROR", "message": f"Cup with ID {cid} not found for GET_CUP_GAMES command."}
 
                     cup = obj['instance']
-                    # Return list of game IDs associated with this cup
-                    game_ids = [g.id() for g in cup.games]
+                    games_data = []
+                    for g in cup.games:
+                        try:
+                            gid = g.id()
+                            
+                            # Find team IDs
+                            home_id = None
+                            away_id = None
+                            for tid, tdata in repository._objects.items():
+                                if tdata['instance'] is g.home_:
+                                    home_id = tid
+                                if tdata['instance'] is g.away_:
+                                    away_id = tid
+                            
+                            # Get scorers
+                            stats = g.stats()
+                            home_scorers = []
+                            away_scorers = []
+                            for player_name, score in stats['Home']['Players'].items():
+                                if score > 0:
+                                    home_scorers.append({"name": player_name, "goals": score})
+                            for player_name, score in stats['Away']['Players'].items():
+                                if score > 0:
+                                    away_scorers.append({"name": player_name, "goals": score})
 
-                return {"status": "OK", "game_ids": game_ids}
+                            games_data.append({
+                                "id": gid,
+                                "home": g.home().team_name,
+                                "away": g.away().team_name,
+                                "home_id": home_id,
+                                "away_id": away_id,
+                                "state": g.state.name,
+                                "score": {"home": g.home_score, "away": g.away_score},
+                                "scorers": {"home": home_scorers, "away": away_scorers},
+                                "timeline": g.timeline,
+                                "datetime": g.datetime.isoformat() if g.datetime and hasattr(g.datetime, 'isoformat') else str(g.datetime) if g.datetime else None,
+                                "group": g.group
+                            })
+                        except Exception as e:
+                            print(f"Error processing game {g} in cup {cid}: {e}")
+                            continue
+
+                return {"status": "OK", "games": games_data}
 
             elif cmd == "GENERATE_PLAYOFFS":
                 cid = req.get("id")
@@ -796,6 +893,12 @@ class Session:
                                 if gid in self.watched_ids:
                                     self.watched_ids.remove(gid)
                                 repository.delete(gid)
+                                
+                                # Clean up global watches for this game
+                                with users_lock:
+                                    for u_watches in user_watches.values():
+                                        if gid in u_watches:
+                                            u_watches.discard(gid)
 
                         # Auto-detach current user to allow deletion if they are the only one
                         # Attempt to detach user if attached (handles persistence across restarts)
@@ -808,6 +911,12 @@ class Session:
 
                         if int(oid) in self.watched_ids:
                             self.watched_ids.remove(int(oid))
+                        
+                        # Clean up global watches for this object
+                        with users_lock:
+                            for u_watches in user_watches.values():
+                                if int(oid) in u_watches:
+                                    u_watches.discard(int(oid))
 
                         save_state()
                         return {"status": "OK", "message": "Object deleted"}
@@ -879,7 +988,7 @@ def load_state():
     Implements persistency by loading the entire repository from a pickle file.
     This is done once at server startup.
     """
-    global repository, registered_users
+    global repository, registered_users, user_watches
     if os.path.exists(SAVE_FILE):
         try:
             with repo_lock:
@@ -893,6 +1002,7 @@ def load_state():
                         repository = saved_data.get('repository', Repo())
                         with users_lock:
                             registered_users = saved_data.get('users', set())
+                            user_watches = saved_data.get('user_watches', {})
                     else:
                         repository = Repo()
 
@@ -908,6 +1018,7 @@ def load_state():
                     if isinstance(data['instance'], Cup):
                         data['instance'].repo = repository
 
+            print(f"DEBUG: Loaded state. Users: {len(registered_users)}, Watches: {sum(len(v) for v in user_watches.values())}")
             print("Server state loaded from 'server_state.pkl'.")
         except Exception as e:
             print(f"Could not load state: {e}. Starting with a new repository.")
@@ -927,9 +1038,11 @@ def save_state():
                 with users_lock:
                     saved_data = {
                         'repository': repository,
-                        'users': registered_users
+                        'users': registered_users,
+                        'user_watches': user_watches
                     }
                 pickle.dump(saved_data, f)
+            print(f"DEBUG: Saved state. Users: {len(registered_users)}, Watches: {sum(len(v) for v in user_watches.values())}")
             os.replace(temp_file, SAVE_FILE)
             print(f"Server state saved to '{SAVE_FILE}'.")
         except Exception as e:
@@ -941,10 +1054,13 @@ if __name__ == "__main__":
     
     # TODO: Learn - This starts the WebSocket server. 'serve' creates a thread for each connection calling 'agent'.
     print(f"WebSocket Server listening on {HOST}:{PORT}...")
-    with serve(agent, HOST, PORT) as server:
-        try:
+    try:
+        # TODO: Learn - This starts the WebSocket server. 'serve' creates a thread for each connection calling 'agent'.
+        with serve(agent, HOST, PORT) as server:
             server.serve_forever()
-        except KeyboardInterrupt:
-            print("\nServer shutting down.")
-        finally:
-            save_state()
+    except KeyboardInterrupt:
+        print("\nServer shutting down.")
+    finally:
+        save_state()
+        # Force exit to prevent hanging on non-daemon threads from the websocket server.
+        os._exit(0)

@@ -1,14 +1,22 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { onGameNotification, watchApi } from '../services/api'
+import { useUser } from './UserContext'
 
 const WatchContext = createContext(null)
 
 export function WatchProvider({ children }) {
   const [watchedGames, setWatchedGames] = useState([])
   const [notifications, setNotifications] = useState([])
+  const { user } = useUser()
 
   // Load watched games from server on mount
   useEffect(() => {
+    console.log('[WatchContext] User state changed:', user)
+    if (!user) {
+      setWatchedGames([])
+      return
+    }
+
     const loadWatchedGames = async () => {
       try {
         const games = await watchApi.getWatchedGames()
@@ -22,9 +30,8 @@ export function WatchProvider({ children }) {
       }
     }
 
-    // Small delay to ensure WebSocket is connected
-    setTimeout(loadWatchedGames, 1000)
-  }, []) // Only run once on mount
+    loadWatchedGames()
+  }, [user])
 
   useEffect(() => {
     const unsubscribe = onGameNotification((notification) => {

@@ -1,5 +1,6 @@
 // src/context/UserContext.jsx
 import { createContext, useContext, useState, useEffect } from 'react';
+import { authApi } from '../services/api';
 
 const UserContext = createContext(null);
 
@@ -8,17 +9,23 @@ export function UserProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is stored in localStorage
-    const storedUser = localStorage.getItem('sports_tracker_user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error('Failed to parse stored user:', error);
-        localStorage.removeItem('sports_tracker_user');
+    const restoreSession = async () => {
+      // Check if user is stored in localStorage
+      const storedUser = localStorage.getItem('sports_tracker_user');
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          // Re-authenticate with backend to restore session
+          await authApi.login(parsedUser.username);
+          setUser(parsedUser);
+        } catch (error) {
+          console.error('Failed to restore user session:', error);
+          localStorage.removeItem('sports_tracker_user');
+        }
       }
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+    restoreSession();
   }, []);
 
   const login = (username) => {

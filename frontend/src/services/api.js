@@ -81,7 +81,8 @@ export const authApi = {
     const response = await wsClient.sendCommand('LOGIN', { username });
     return {
       username: response.username,
-      message: response.message
+      message: response.message,
+      watched_ids: response.watched_ids
     };
   },
 };
@@ -112,6 +113,14 @@ export const teamApi = {
   delete: async (id) => {
     await wsClient.sendCommand('DELETE', { id });
     return { success: true };
+  },
+
+  update: async (id, updates) => {
+    await wsClient.sendCommand('UPDATE_TEAM', {
+      id,
+      ...updates
+    });
+    return await teamApi.getById(id);
   },
 
   addPlayer: async (teamId, playerName, playerNo) => {
@@ -219,6 +228,19 @@ export const gameApi = {
     return await gameApi.getById(response.id);
   },
 
+  update: async (id, updates) => {
+    await wsClient.sendCommand('UPDATE_GAME', {
+      id,
+      ...updates
+    });
+    return await gameApi.getById(id);
+  },
+
+  getStats: async (id) => {
+    const response = await wsClient.sendCommand('GET_GAME_STATS', { id });
+    return response.stats;
+  },
+
   start: async (id) => {
     await wsClient.sendCommand('START', { id });
     return await gameApi.getById(id);
@@ -264,6 +286,36 @@ export const cupApi = {
     return response.cups || [];
   },
 
+  create: async (arg1, arg2, arg3, arg4, arg5) => {
+    let name, type, teamIds, numGroups, playoffTeams;
+
+    if (typeof arg1 === 'object' && arg1 !== null && !Array.isArray(arg1)) {
+      // Object style
+      ({ name, type, teamIds, numGroups, playoffTeams } = arg1);
+      // Handle property aliases
+      type = type || arg1.cup_type || arg1.cupType;
+      teamIds = teamIds || arg1.team_ids || arg1.teams;
+      numGroups = numGroups || arg1.num_groups;
+      playoffTeams = playoffTeams || arg1.playoff_teams;
+    } else {
+      // Positional style: create(name, type, teamIds, numGroups, playoffTeams)
+      name = arg1;
+      type = arg2;
+      teamIds = arg3;
+      numGroups = arg4;
+      playoffTeams = arg5;
+    }
+
+    const response = await wsClient.sendCommand('CREATE_CUP', {
+      name,
+      cup_type: type,
+      team_ids: teamIds,
+      num_groups: numGroups,
+      playoff_teams: playoffTeams
+    });
+    return response;
+  },
+
   getById: async (id) => {
     const response = await wsClient.sendCommand('GET_CUPS');
     return response.cups.find(c => c.id === id) || null;
@@ -281,113 +333,80 @@ export const cupApi = {
 
   getCupGames: async (id) => {
     const response = await wsClient.sendCommand('GET_CUP_GAMES', { id });
-    const gameIds = response.game_ids || [];
-
-    // Fetch full game details for each game ID
-    const allGames = await gameApi.getAll();
-    return allGames.filter(game => gameIds.includes(game.id));
-  },
-
-  create: async (name, type, teamIds, numGroups = 4, playoffTeams = 8) => {
-    const payload = {
-      name: name,
-      cup_type: type,
-      team_ids: teamIds
-    };
-
-    // Only add GROUP-specific parameters if type is GROUP
-    if (type === 'GROUP') {
-      payload.num_groups = numGroups;
-      payload.playoff_teams = playoffTeams;
-    }
-
-    const response = await wsClient.sendCommand('CREATE_CUP', payload);
-
-    return {
-      id: response.id,
-      name,
-      type,
-      teams: teamIds,
-      gameCount: 0
-    };
+    return (response.games || []).map(transformGame);
   },
 
   delete: async (id) => {
     await wsClient.sendCommand('DELETE', { id });
     return { success: true };
   },
-};
 
-// ==========================================
-// LIVE GAMES (Canlı maçlar)
-// ==========================================
-export const liveApi = {
-  getRunningGames: async () => {
-    const response = await wsClient.sendCommand('GET_GAMES');
-    const games = (response.games || []).map(transformGame);
-    return games.filter(g => g.state === 'RUNNING' || g.state === 'PAUSED');
+  generatePlayoffs: async (id) => {
+    const response = await wsClient.sendCommand('GENERATE_PLAYOFFS', { id });
+    return response;
   },
 };
 
-// ==========================================
-// WATCH API (Observer Pattern)
-// ==========================================
+export const systemApi = {
+  save: async () => {
+    await wsClient.sendCommand('SAVE');
+  },
+
+  search: async (query) => {
+    const response = await wsClient.sendCommand('SEARCH', { query });
+    return response.results || [];
+  },
+
+  list: async () => {
+    const response = await wsClient.sendCommand('LIST');
+    return response.items || [];
+  },
+
+  listAttached: async () => {
+    const response = await wsClient.sendCommand('LIST_ATTACHED');
+    return response.items || [];
+  },
+
+  attach: async (id) => {
+    await wsClient.sendCommand('ATTACH', { id });
+  },
+
+  detach: async (id) => {
+    await wsClient.sendCommand('DETACH', { id });
+  }
+};
+
 export const watchApi = {
-  watch: async (gameId) => {
-    await wsClient.sendCommand('WATCH', { id: gameId });
-    return { success: true, gameId };
-  },
-
-  unwatch: async (gameId) => {
-    await wsClient.sendCommand('UNWATCH', { id: gameId });
-    return { success: true, gameId };
-  },
-
   getWatchedGames: async () => {
     const response = await wsClient.sendCommand('GET_WATCHED_GAMES');
     return (response.games || []).map(transformGame);
   },
 
-  isWatching: async (gameId) => {
-    const watched = await watchApi.getWatchedGames();
-    return watched.some(game => game.id === gameId);
+  watch: async (id) => {
+    await wsClient.sendCommand('WATCH', { id });
   },
-};
 
-// ==========================================
-// WebSocket Connection Management
-// ==========================================
-export const initializeWebSocket = async () => {
-  try {
-    await wsClient.connect();
-    console.log('✅ WebSocket connected to backend');
-    return true;
-  } catch (error) {
-    console.error('❌ WebSocket connection failed:', error);
-    return false;
+  unwatch: async (id) => {
+    await wsClient.sendCommand('UNWATCH', { id });
   }
 };
 
-export const disconnectWebSocket = () => {
-  wsClient.disconnect();
+export const onGameNotification = (callback) => {
+  return wsClient.onNotification(callback);
+};
+
+export const initializeWebSocket = async () => {
+  return await wsClient.connect();
 };
 
 export const isWebSocketConnected = () => {
   return wsClient.isConnected();
 };
 
-// Register global notification handler
-export const onGameNotification = (handler) => {
-  return wsClient.onNotification(handler);
-};
-
-// ==========================================
-// ERROR HANDLING
-// ==========================================
 export const setGlobalErrorHandler = (handler) => {
   wsClient.setErrorHandler(handler);
 };
 
 export const removeGlobalErrorHandler = () => {
-  wsClient.removeErrorHandler();
+  wsClient.setErrorHandler(null);
 };

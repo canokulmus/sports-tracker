@@ -101,9 +101,11 @@ class Cup:
 
         # Since Game observers are wiped on load, the Cup (which watches games in Group tournaments to trigger playoffs) needs to re-subscribe itself when the server restarts.
         
-        if self.cup_type in [CupType.GROUP, CupType.GROUP2]:
-            for game in self.games:
+        for game in self.games:
+            try:
                 game.watch(self)
+            except ValueError:
+                pass
 
     def __str__(self) -> str:
         """Returns a human-readable summary of the cup."""
@@ -236,6 +238,13 @@ class Cup:
                     game.watch(observer)
                 except ValueError:
                     pass
+
+        # The Cup itself must watch the game to handle bracket progression (placeholders)
+        # and group stage completion triggers.
+        try:
+            game.watch(self)
+        except ValueError:
+            pass
 
         return game
 
@@ -667,10 +676,6 @@ class Cup:
             group_games = self._create_group_league(self.groups[group_name], group_name, double)
             self.group_games[group_name] = group_games
             self.games.extend(group_games)
-
-        # The cup watches its own games to trigger playoffs automatically
-        for game in self.games:
-            game.watch(self)
 
         # Playoff info (bracket will be generated after group stage)
         print(f"\n   Playoff: {self.playoff_teams} teams will advance.")
