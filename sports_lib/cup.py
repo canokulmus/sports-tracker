@@ -816,7 +816,8 @@ class Cup:
     def generate_playoffs(self) -> None:
         """Generates the COMPLETE playoff bracket after group stage.
 
-        Creates all playoff rounds (QF → SF → F) similar to ELIMINATION.
+        Creates all playoff rounds (QF → SF → F) with cross-group seeding.
+        Teams from the same group should not meet in the first playoff round.
         """
         if self.cup_type not in [CupType.GROUP, CupType.GROUP2]:
             raise ValueError("generate_playoffs() only works for GROUP tournaments")
@@ -828,7 +829,8 @@ class Cup:
         print(f"   Each group sends top {k} team(s).")
         print(f"   Plus {wild_card_count} wild card team(s).")
 
-        playoff_teams: List[Team] = []
+        # Store qualified teams by position (1st, 2nd, etc.) and group
+        qualified_by_position: Dict[int, List[Tuple[Team, str]]] = {}  # position -> [(team, group)]
         all_qualified: List[Tuple[Team, int, str]] = []  # (team, points, group)
 
         for group_name in sorted(self.groups.keys()):
@@ -843,7 +845,12 @@ class Cup:
                     team_obj = next(
                         t for t in self.groups[group_name] if t.team_name == team_name
                     )
-                    playoff_teams.append(team_obj)
+
+                    # Store by position for cross-group seeding
+                    if i not in qualified_by_position:
+                        qualified_by_position[i] = []
+                    qualified_by_position[i].append((team_obj, group_name))
+
                     print(f"          Qualified (top {k}).")
                 else:
                     # Remaining teams are candidates for wild card spots.
@@ -852,6 +859,8 @@ class Cup:
                     )
                     all_qualified.append((team_obj, pts, group_name))
 
+        # Add wild cards
+        wild_cards: List[Tuple[Team, str]] = []
         if wild_card_count > 0:
             # Sort remaining teams by points to find the best runners-up.
             all_qualified.sort(key=lambda x: x[1], reverse=True)
@@ -861,7 +870,10 @@ class Cup:
                 print(
                     f"      {team.team_name} (from Group {grp}): {pts} pts - Qualified."
                 )
-                playoff_teams.append(team)
+                wild_cards.append((team, grp))
+
+        # Create cross-group seeded bracket
+        playoff_teams = self._create_cross_group_seeding(qualified_by_position, wild_cards)
 
         print(f"\n   Total playoff teams: {len(playoff_teams)}.")
 
@@ -870,11 +882,85 @@ class Cup:
         # Add a break before the playoffs start.
         self._current_date += self.interval * 3
 
-        random.shuffle(playoff_teams)
-
         # Generate COMPLETE playoff bracket (all rounds)
-
         self._generate_playoff_bracket(playoff_teams, double)
+
+    def _create_cross_group_seeding(
+        self,
+        qualified_by_position: Dict[int, List[Tuple[Team, str]]],
+        wild_cards: List[Tuple[Team, str]]
+    ) -> List[Team]:
+        """Creates a seeded playoff bracket with cross-group matchups.
+
+        Ensures that teams from the same group do not meet in the first round.
+        Uses a snake seeding pattern: 1st place teams alternate with 2nd place teams.
+
+        Args:
+            qualified_by_position: Teams organized by their group position
+            wild_cards: Wild card teams with their group names
+
+        Returns:
+            List of teams in seeded order for bracket creation
+        """
+        seeded_teams: List[Team] = []
+
+        # Get all first-place teams
+        first_place = qualified_by_position.get(1, [])
+        # Get all second-place teams (or lower if k > 1)
+        other_qualified = []
+        for pos in range(2, max(qualified_by_position.keys()) + 1) if qualified_by_position else []:
+            other_qualified.extend(qualified_by_position.get(pos, []))
+
+        # Add wild cards to other_qualified
+        other_qualified.extend(wild_cards)
+
+        # Shuffle within same-position teams to add variety
+        random.shuffle(first_place)
+        random.shuffle(other_qualified)
+
+        # Create cross-group pairings
+        # Strategy: Pair 1st place from one group with 2nd/wild from different group
+
+        if len(first_place) > 0 and len(other_qualified) > 0:
+            # Interleave first place and others, ensuring different groups
+            used_first = set()
+            used_other = set()
+
+            for _ in range(min(len(first_place), len(other_qualified))):
+                # Pick first place team
+                for j, (team1, group1) in enumerate(first_place):
+                    if j in used_first:
+                        continue
+
+                    # Find a second place team from different group
+                    for k, (team2, group2) in enumerate(other_qualified):
+                        if k in used_other:
+                            continue
+                        if group1 != group2:
+                            # Valid cross-group pairing
+                            seeded_teams.append(team1)
+                            seeded_teams.append(team2)
+                            used_first.add(j)
+                            used_other.add(k)
+                            break
+
+                    if j in used_first:
+                        break
+
+            # Add remaining teams (might happen with odd numbers)
+            for j, (team, _) in enumerate(first_place):
+                if j not in used_first:
+                    seeded_teams.append(team)
+
+            for k, (team, _) in enumerate(other_qualified):
+                if k not in used_other:
+                    seeded_teams.append(team)
+        else:
+            # Fallback: just combine all teams
+            seeded_teams.extend([team for team, _ in first_place])
+            seeded_teams.extend([team for team, _ in other_qualified])
+
+        return seeded_teams
 
     def _generate_playoff_bracket(self, teams: List[Team], double: bool) -> None:
         """Generate complete playoff bracket (QF → SF → F).
