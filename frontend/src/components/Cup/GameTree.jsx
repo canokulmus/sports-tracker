@@ -85,7 +85,7 @@ function GroupStage({ groups }) {
   )
 }
 
-function GameTree({ gameTree, cupType }) {
+function GameTree({ gameTree, cupType, playoffOnly = false }) {
   if (!gameTree) {
     return (
       <div style={styles.empty}>
@@ -96,6 +96,23 @@ function GameTree({ gameTree, cupType }) {
 
   // GROUP tournament: Groups + Playoffs
   if (cupType === 'GROUP') {
+    // If playoffOnly is true, only show the playoff bracket
+    if (playoffOnly) {
+      if (gameTree.Playoffs && Object.keys(gameTree.Playoffs).length > 0) {
+        return (
+          <div style={styles.container}>
+            <EliminationBracket gameTree={gameTree.Playoffs} />
+          </div>
+        )
+      }
+      return (
+        <div style={styles.empty}>
+          <p>Playoff bracket will appear after group stage is complete</p>
+        </div>
+      )
+    }
+
+    // Show both groups and playoffs
     return (
       <div style={styles.container}>
         {gameTree.Groups && <GroupStage groups={gameTree.Groups} />}

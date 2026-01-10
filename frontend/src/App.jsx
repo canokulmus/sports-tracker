@@ -1,18 +1,47 @@
 // src/App.jsx
 import { useEffect, useState } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { DialogProvider, useDialog } from './context/DialogContext'
 import { WatchProvider } from './context/WatchContext'
+import { UserProvider, useUser } from './context/UserContext'
 import Dialog from './components/Dialog'
 import Layout from './components/Layout'
+import LoginPage from './pages/LoginPage'
 import TeamsPage from './pages/TeamsPage'
 import GamesPage from './pages/GamesPage'
+import GameDetail from './pages/GameDetail'
 import CupsPage from './pages/CupsPage'
 import CupDetail from './pages/CupDetail'
 import LivePage from './pages/LivePage'
 import WatchedGamesPage from './pages/WatchedGamesPage'
 import { initializeWebSocket, setGlobalErrorHandler, removeGlobalErrorHandler } from './services/api'
 import colors from './styles/colors'
+
+// Protected Route wrapper
+function ProtectedRoute({ children }) {
+  const { user, isLoading } = useUser()
+
+  if (isLoading) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        backgroundColor: colors.background.primary,
+        color: colors.text.primary
+      }}>
+        Loading...
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  return children
+}
 
 // Inner component that has access to Dialog context
 function AppContent() {
@@ -40,10 +69,16 @@ function AppContent() {
   return (
     <>
       <Routes>
-        <Route path="/" element={<Layout />}>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/" element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }>
           <Route index element={<LivePage />} />
           <Route path="teams" element={<TeamsPage />} />
           <Route path="games" element={<GamesPage />} />
+          <Route path="games/:gameId" element={<GameDetail />} />
           <Route path="cups" element={<CupsPage />} />
           <Route path="cups/:cupId" element={<CupDetail />} />
           <Route path="live" element={<LivePage />} />
@@ -136,11 +171,13 @@ function App() {
   }
 
   return (
-    <WatchProvider>
-      <DialogProvider>
-        <AppContent />
-      </DialogProvider>
-    </WatchProvider>
+    <UserProvider>
+      <WatchProvider>
+        <DialogProvider>
+          <AppContent />
+        </DialogProvider>
+      </WatchProvider>
+    </UserProvider>
   )
 }
 

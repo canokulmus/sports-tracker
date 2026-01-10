@@ -1,19 +1,21 @@
 import { useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Eye, Bell, Trash2 } from 'lucide-react'
 import { useWatch } from '../context/WatchContext'
-import { gameApi } from '../services/api'
+import { watchApi } from '../services/api'
 import { colors } from '../styles/colors'
 import { useApiData } from '../hooks'
 import { Loader } from '../components/Loader'
 import GameCard from '../components/Game/GameCard'
 
 function WatchedGamesPage() {
+  const navigate = useNavigate()
   const { watchedGames, unwatchGame, notifications, removeNotification, clearNotifications } = useWatch()
   const lastNotificationIdRef = useRef(null)
 
   const fetchWatchedGames = async () => {
-    const allGames = await gameApi.getAll()
-    return allGames.filter((g) => watchedGames.includes(g.id))
+    // Get watched games directly from server
+    return await watchApi.getWatchedGames()
   }
 
   const { data: games, loading, reload } = useApiData(fetchWatchedGames, [watchedGames])
@@ -125,7 +127,11 @@ function WatchedGamesPage() {
         <div className="grid grid-2">
           {games.map((game) => (
             <div key={game.id} style={styles.gameCardWrapper}>
-              <GameCard game={game} variant="default" />
+              <GameCard
+                game={game}
+                variant="default"
+                onClick={(gameId) => navigate(`/games/${gameId}`)}
+              />
               <button
                 onClick={() => handleUnwatch(game.id)}
                 style={styles.unwatchBtn}

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { gameApi, teamApi } from '../services/api'
 import { GameCard } from '../components/Game'
@@ -7,6 +8,7 @@ import { Loader } from '../components/Loader'
 import Tabs from '../components/Tabs'
 
 function GamesPage() {
+  const navigate = useNavigate()
   const { value: showForm, toggle: toggleForm } = useToggle(false)
   const { formData: newGame, updateField, resetForm } = useFormState({ homeId: '', awayId: '' })
   const [activeTab, setActiveTab] = useState('all')
@@ -169,6 +171,7 @@ function GamesPage() {
               onEnd={endGame}
               onScore={recordScore}
               onDelete={deleteGame}
+              onClick={(gameId) => navigate(`/games/${gameId}`)}
             />
           ))}
         </div>

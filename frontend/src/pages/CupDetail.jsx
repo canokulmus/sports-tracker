@@ -1,12 +1,13 @@
 // src/pages/CupDetail.jsx
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Trophy } from 'lucide-react'
-import { cupApi } from '../services/api'
+import { ArrowLeft, Trophy, Calendar } from 'lucide-react'
+import { cupApi, gameApi, onGameNotification } from '../services/api'
 import { colors } from '../styles/colors'
 import { Loader } from '../components/Loader'
 import StandingsTable from '../components/Cup/StandingsTable'
 import GameTree from '../components/Cup/GameTree'
+import GameCard from '../components/Game/GameCard'
 
 function CupDetail() {
   const { cupId } = useParams()
@@ -15,12 +16,32 @@ function CupDetail() {
   const [cup, setCup] = useState(null)
   const [standings, setStandings] = useState(null)
   const [gameTree, setGameTree] = useState(null)
+  const [fixtures, setFixtures] = useState([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('standings')
+  const [activeTab, setActiveTab] = useState('') // Will be set based on cup type
 
   useEffect(() => {
     loadCupData()
   }, [cupId])
+
+  // Listen for WebSocket notifications to update cup data in real-time
+  useEffect(() => {
+    const unsubscribe = onGameNotification((notification) => {
+      // Reload cup data when any game in this cup is updated
+      if (notification.type === 'NOTIFICATION' && notification.game_id) {
+        // Check if this game belongs to current cup
+        const gameInCup = fixtures.some(game => game.id === notification.game_id)
+        if (gameInCup) {
+          console.log('[CupDetail] Received update for game in this cup, reloading...')
+          loadCupData()
+        }
+      }
+    })
+
+    return () => {
+      if (unsubscribe) unsubscribe()
+    }
+  }, [cupId, fixtures])
 
   const loadCupData = async () => {
     try {
@@ -28,18 +49,31 @@ function CupDetail() {
       const cupData = await cupApi.getById(parseInt(cupId))
       setCup(cupData)
 
-      // Load standings
-      const standingsData = await cupApi.getStandings(parseInt(cupId))
-      setStandings(standingsData)
+      // Set default tab based on cup type
+      if (cupData.type === 'ELIMINATION') {
+        setActiveTab('bracket')
+      } else {
+        setActiveTab('standings')
+      }
 
-      // Load GameTree if not LEAGUE
-      if (cupData.type !== 'LEAGUE') {
+      // Load standings (not needed for ELIMINATION)
+      if (cupData.type !== 'ELIMINATION') {
+        const standingsData = await cupApi.getStandings(parseInt(cupId))
+        setStandings(standingsData)
+      }
+
+      // Load fixtures (games in this cup)
+      const cupGames = await cupApi.getCupGames(parseInt(cupId))
+      setFixtures(cupGames)
+
+      // Load GameTree for GROUP and ELIMINATION tournaments
+      if (cupData.type === 'GROUP' || cupData.type === 'ELIMINATION') {
         try {
           const gameTreeData = await cupApi.getGameTree(parseInt(cupId))
           setGameTree(gameTreeData)
-          setActiveTab('gametree') // Default to GameTree for ELIMINATION/GROUP
         } catch (err) {
-          console.log('GameTree not available:', err)
+          console.log('GameTree not available yet:', err)
+          setGameTree(null)
         }
       }
     } catch (error) {
@@ -62,8 +96,6 @@ function CupDetail() {
       </div>
     )
   }
-
-  const hasGameTree = cup.type !== 'LEAGUE'
 
   return (
     <div>
@@ -102,30 +134,62 @@ function CupDetail() {
 
       {/* Tabs */}
       <div style={styles.tabs}>
-        <button
-          style={{
-            ...styles.tab,
-            ...(activeTab === 'standings' ? styles.tabActive : {}),
-          }}
-          onClick={() => setActiveTab('standings')}
-        >
-          Standings
-        </button>
-        {hasGameTree && (
+        {/* Standings tab - only for LEAGUE and GROUP */}
+        {cup.type !== 'ELIMINATION' && (
           <button
             style={{
               ...styles.tab,
-              ...(activeTab === 'gametree' ? styles.tabActive : {}),
+              ...(activeTab === 'standings' ? styles.tabActive : {}),
             }}
-            onClick={() => setActiveTab('gametree')}
+            onClick={() => setActiveTab('standings')}
           >
-            Bracket
+            Standings
+          </button>
+        )}
+
+        {/* Knockout/Bracket tab - only for ELIMINATION */}
+        {cup.type === 'ELIMINATION' && (
+          <button
+            style={{
+              ...styles.tab,
+              ...(activeTab === 'bracket' ? styles.tabActive : {}),
+            }}
+            onClick={() => setActiveTab('bracket')}
+          >
+            <Trophy size={16} style={{ marginRight: '6px' }} />
+            Knockout Stages
+          </button>
+        )}
+
+        {/* Fixtures tab - for all types */}
+        <button
+          style={{
+            ...styles.tab,
+            ...(activeTab === 'fixtures' ? styles.tabActive : {}),
+          }}
+          onClick={() => setActiveTab('fixtures')}
+        >
+          <Calendar size={16} style={{ marginRight: '6px' }} />
+          Fixtures
+        </button>
+
+        {/* Playoff Stage tab - only for GROUP */}
+        {cup.type === 'GROUP' && (
+          <button
+            style={{
+              ...styles.tab,
+              ...(activeTab === 'playoffs' ? styles.tabActive : {}),
+            }}
+            onClick={() => setActiveTab('playoffs')}
+          >
+            Playoff Stage
           </button>
         )}
       </div>
 
       {/* Content */}
       <div className="card" style={{ marginTop: '24px' }}>
+        {/* Standings - LEAGUE and GROUP only */}
         {activeTab === 'standings' && (
           <div>
             <h3 className="card-title mb-4">Standings</h3>
@@ -133,10 +197,57 @@ function CupDetail() {
           </div>
         )}
 
-        {activeTab === 'gametree' && (
+        {/* Knockout Stages - ELIMINATION only */}
+        {activeTab === 'bracket' && (
           <div>
-            <h3 className="card-title mb-4">Tournament Bracket</h3>
-            <GameTree gameTree={gameTree} cupType={cup.type} />
+            <h3 className="card-title mb-4">Knockout Stages</h3>
+            {gameTree ? (
+              <GameTree gameTree={gameTree} cupType={cup.type} />
+            ) : (
+              <div style={styles.emptyFixtures}>
+                <Trophy size={48} color={colors.text.muted} style={{ opacity: 0.3 }} />
+                <p className="text-muted">Bracket not available yet</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Fixtures - all types */}
+        {activeTab === 'fixtures' && (
+          <div>
+            <h3 className="card-title mb-4">Fixtures ({fixtures.length} games)</h3>
+            {fixtures.length === 0 ? (
+              <div style={styles.emptyFixtures}>
+                <Calendar size={48} color={colors.text.muted} style={{ opacity: 0.3 }} />
+                <p className="text-muted">No games scheduled yet</p>
+              </div>
+            ) : (
+              <div style={styles.fixturesGrid}>
+                {fixtures.map((game) => (
+                  <GameCard
+                    key={game.id}
+                    game={game}
+                    variant="compact"
+                    onClick={(gameId) => navigate(`/games/${gameId}`)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Playoff Stage - GROUP only */}
+        {activeTab === 'playoffs' && (
+          <div>
+            <h3 className="card-title mb-4">Playoff Stage</h3>
+            {gameTree ? (
+              <GameTree gameTree={gameTree} cupType={cup.type} playoffOnly={true} />
+            ) : (
+              <div style={styles.emptyFixtures}>
+                <Trophy size={48} color={colors.text.muted} style={{ opacity: 0.3 }} />
+                <p className="text-muted">Playoff bracket will appear after group stage is complete</p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -194,6 +305,8 @@ const styles = {
     transition: 'all 0.2s ease',
     marginBottom: '-2px',
     outline: 'none',
+    display: 'flex',
+    alignItems: 'center',
   },
   tabActive: {
     color: colors.brand.primary,
@@ -203,6 +316,19 @@ const styles = {
     textAlign: 'center',
     padding: '48px',
     color: colors.text.muted,
+  },
+  emptyFixtures: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '60px 24px',
+    gap: '16px',
+  },
+  fixturesGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+    gap: '16px',
   },
 }
 

@@ -1,4 +1,5 @@
 import { Radio } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { gameApi } from '../services/api'
 import { colors } from '../styles/colors'
 import { useApiData } from '../hooks'
@@ -6,6 +7,7 @@ import { Loader } from '../components/Loader'
 import GameCard from '../components/Game/GameCard'
 
 function LivePage() {
+  const navigate = useNavigate()
   const fetchLiveGames = async () => {
     const allGames = await gameApi.getAll()
     return allGames.filter((g) => g.state === 'RUNNING' || g.state === 'PAUSED')
@@ -59,6 +61,7 @@ function LivePage() {
               game={game}
               variant="live"
               showWatchButton={true}
+              onClick={(gameId) => navigate(`/games/${gameId}`)}
             />
           ))}
         </div>

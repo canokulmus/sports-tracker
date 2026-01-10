@@ -47,28 +47,38 @@ function LeagueStandings({ standings }) {
 }
 
 function GroupStandings({ standings }) {
-  const groupNames = Object.keys(standings).sort()
+  // Handle nested format: {Groups: {A: [...], B: [...]}, Playoffs: {...}}
+  const groups = standings.Groups || standings
+  const groupNames = Object.keys(groups).sort()
 
   return (
     <div style={styles.groupContainer}>
-      {groupNames.map((groupName) => (
-        <div key={groupName} style={styles.groupCard}>
-          <h4 style={styles.groupTitle}>Group {groupName}</h4>
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Team</th>
-                  <th>P</th>
-                  <th>W</th>
-                  <th>D</th>
-                  <th>L</th>
-                  <th>Pts</th>
-                </tr>
-              </thead>
-              <tbody>
-                {standings[groupName].map((row, index) => (
+      {groupNames.map((groupName) => {
+        const groupStandings = groups[groupName]
+
+        // Skip if not an array (e.g., Playoffs might be an object)
+        if (!Array.isArray(groupStandings)) {
+          return null
+        }
+
+        return (
+          <div key={groupName} style={styles.groupCard}>
+            <h4 style={styles.groupTitle}>Group {groupName}</h4>
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Team</th>
+                    <th>P</th>
+                    <th>W</th>
+                    <th>D</th>
+                    <th>L</th>
+                    <th>Pts</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupStandings.map((row, index) => (
                   <tr key={row.team}>
                     <td>
                       <strong>{index + 1}</strong>
@@ -84,12 +94,13 @@ function GroupStandings({ standings }) {
                       <strong>{row.points}</strong>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

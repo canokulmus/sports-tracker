@@ -4,42 +4,27 @@ import { onGameNotification, watchApi } from '../services/api'
 const WatchContext = createContext(null)
 
 export function WatchProvider({ children }) {
-  const [watchedGames, setWatchedGames] = useState(() => {
-    const saved = localStorage.getItem('watchedGames')
-    return saved ? JSON.parse(saved) : []
-  })
+  const [watchedGames, setWatchedGames] = useState([])
+  const [notifications, setNotifications] = useState([])
 
-  const [notifications, setNotifications] = useState(() => {
-    const saved = localStorage.getItem('watchNotifications')
-    return saved ? JSON.parse(saved) : []
-  })
-
-  // Re-watch all games when component mounts (after WebSocket reconnect)
+  // Load watched games from server on mount
   useEffect(() => {
-    const reWatchGames = async () => {
-      for (const gameId of watchedGames) {
-        try {
-          await watchApi.watch(gameId)
-          console.log('[WatchContext] Re-watched game on mount:', gameId)
-        } catch (error) {
-          console.error('[WatchContext] Failed to re-watch game:', gameId, error)
-        }
+    const loadWatchedGames = async () => {
+      try {
+        const games = await watchApi.getWatchedGames()
+        const gameIds = games.map(g => g.id)
+        setWatchedGames(gameIds)
+        console.log('[WatchContext] Loaded watched games from server:', gameIds)
+      } catch (error) {
+        console.error('[WatchContext] Failed to load watched games:', error)
+        // Initialize with empty array on error
+        setWatchedGames([])
       }
     }
 
-    if (watchedGames.length > 0) {
-      // Small delay to ensure WebSocket is connected
-      setTimeout(reWatchGames, 1000)
-    }
+    // Small delay to ensure WebSocket is connected
+    setTimeout(loadWatchedGames, 1000)
   }, []) // Only run once on mount
-
-  useEffect(() => {
-    localStorage.setItem('watchedGames', JSON.stringify(watchedGames))
-  }, [watchedGames])
-
-  useEffect(() => {
-    localStorage.setItem('watchNotifications', JSON.stringify(notifications))
-  }, [notifications])
 
   useEffect(() => {
     const unsubscribe = onGameNotification((notification) => {
@@ -125,7 +110,6 @@ export function WatchProvider({ children }) {
 
   const clearNotifications = useCallback(() => {
     setNotifications([])
-    localStorage.removeItem('watchNotifications')
   }, [])
 
   const removeNotification = useCallback((id) => {

@@ -25,10 +25,13 @@ function GoalDropdown({ players = [], onScore, side, disabled = false }) {
   if (disabled) return null
 
   return (
-    <div style={styles.container} ref={dropdownRef}>
+    <div style={styles.container} ref={dropdownRef} onClick={(e) => e.stopPropagation()}>
       <button
         style={styles.triggerBtn}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={(e) => {
+          e.stopPropagation()
+          setIsOpen(!isOpen)
+        }}
         onMouseEnter={(e) => {
           e.currentTarget.style.background = `${colors.state.success}15`
           e.currentTarget.style.borderColor = `${colors.state.success}60`
