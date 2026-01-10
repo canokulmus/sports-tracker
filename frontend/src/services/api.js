@@ -74,6 +74,19 @@ const transformGame = (backendGame) => {
 };
 
 // ==========================================
+// AUTH API
+// ==========================================
+export const authApi = {
+  login: async (username) => {
+    const response = await wsClient.sendCommand('LOGIN', { username });
+    return {
+      username: response.username,
+      message: response.message
+    };
+  },
+};
+
+// ==========================================
 // TEAM API
 // ==========================================
 export const teamApi = {

@@ -22,6 +22,10 @@ SAVE_FILE = 'server_state.pkl'  # File for object persistence.
 repository = Repo()
 repo_lock = threading.RLock()
 
+# User management: Store registered users
+registered_users = set()  # Set of usernames
+users_lock = threading.RLock()
+
 
 class SocketObserver:
     """
@@ -114,7 +118,23 @@ class Session:
         cmd = req.get("command", "").upper()
 
         try:
-            if cmd == "USER":
+            if cmd == "LOGIN":
+                username = req.get("username", "").strip()
+                if not username:
+                    return {"status": "ERROR", "message": "Username is required for LOGIN command."}
+
+                with users_lock:
+                    # Add user to registered users if not already present
+                    if username not in registered_users:
+                        registered_users.add(username)
+                        save_state()  # Persist user data
+
+                    # Set the session user
+                    self.user = username
+
+                return {"status": "OK", "username": username, "message": f"Logged in as {username}"}
+
+            elif cmd == "USER":
                 self.user = req.get("username", "Anonymous")
                 return {"status": "OK", "message": f"User set to {self.user}"}
 
@@ -859,14 +879,22 @@ def load_state():
     Implements persistency by loading the entire repository from a pickle file.
     This is done once at server startup.
     """
-    global repository
+    global repository, registered_users
     if os.path.exists(SAVE_FILE):
         try:
             with repo_lock:
                 with open(SAVE_FILE, 'rb') as f:
-                    loaded_repo = pickle.load(f)
-                    if isinstance(loaded_repo, Repo):
-                        repository = loaded_repo
+                    saved_data = pickle.load(f)
+
+                    # Support both old format (just Repo) and new format (dict with repo + users)
+                    if isinstance(saved_data, Repo):
+                        repository = saved_data
+                    elif isinstance(saved_data, dict):
+                        repository = saved_data.get('repository', Repo())
+                        with users_lock:
+                            registered_users = saved_data.get('users', set())
+                    else:
+                        repository = Repo()
 
                 # Ensure _last_id is consistent with the highest existing ID
                 if repository._objects:
@@ -874,12 +902,12 @@ def load_state():
                     if repository._last_id < max_id:
                         print(f"Migrating _last_id from {repository._last_id} to {max_id}")
                         repository._last_id = max_id
-                
+
                 # Restore repo references for objects that need them (e.g. Cups)
                 for data in repository._objects.values():
                     if isinstance(data['instance'], Cup):
                         data['instance'].repo = repository
-            
+
             print("Server state loaded from 'server_state.pkl'.")
         except Exception as e:
             print(f"Could not load state: {e}. Starting with a new repository.")
@@ -895,7 +923,13 @@ def save_state():
             # Use a temporary file for atomic write to prevent corruption
             temp_file = f"{SAVE_FILE}.tmp"
             with open(temp_file, 'wb') as f:
-                pickle.dump(repository, f)
+                # Save both repository and registered users
+                with users_lock:
+                    saved_data = {
+                        'repository': repository,
+                        'users': registered_users
+                    }
+                pickle.dump(saved_data, f)
             os.replace(temp_file, SAVE_FILE)
             print(f"Server state saved to '{SAVE_FILE}'.")
         except Exception as e:
