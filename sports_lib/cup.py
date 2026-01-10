@@ -232,7 +232,10 @@ class Cup:
                         matches = False
 
             if matches:
-                game.watch(observer)
+                try:
+                    game.watch(observer)
+                except ValueError:
+                    pass
 
         return game
 
@@ -366,24 +369,44 @@ class Cup:
 
     def watch(self, obj: Any, **searchparams: Any) -> None:
         """Adds an observer to games matching the given search parameters."""
+        if not hasattr(obj, "update"):
+            raise TypeError(f"Observer {obj} must have an 'update' method.")
+
+        valid_params = {"tname", "group", "between"}
+        unknown = set(searchparams.keys()) - valid_params
+        if unknown:
+            raise ValueError(f"Unknown search parameters: {unknown}. Valid: {valid_params}")
+
         observer_entry = {"observer": obj, "params": searchparams}
-        if observer_entry not in self._observers:
-            self._observers.append(observer_entry)
+        if observer_entry in self._observers:
+            raise ValueError(f"Observer {obj} is already watching Cup {self.id_} with these parameters.")
+
+        self._observers.append(observer_entry)
 
         # Attach the observer to all existing and future games that match.
         matching_games = self.search(**searchparams)
         for game in matching_games:
-            game.watch(obj)
+            try:
+                game.watch(obj)
+            except ValueError:
+                pass
 
     def unwatch(self, obj: Any) -> None:
         """Removes an observer from all games in the cup."""
+        is_watching = any(entry["observer"] == obj for entry in self._observers)
+        if not is_watching:
+            raise ValueError(f"Observer {obj} is not watching Cup {self.id_}.")
+
         self._observers = [
             entry for entry in self._observers if entry["observer"] != obj
         ]
 
         # Remove the observer from all games
         for game in self.games:
-            game.unwatch(obj)
+            try:
+                game.unwatch(obj)
+            except ValueError:
+                pass
 
     def _generate_elimination(self, double: bool = False) -> None:
         """Generates a multi-round elimination (knockout) bracket.

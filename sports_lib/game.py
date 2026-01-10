@@ -1,6 +1,7 @@
 from datetime import datetime
 from time import monotonic
 from typing import Any, Dict, List, Tuple, Optional
+import sys
 
 from .team import Team
 from .constants import GameState, GameSettings
@@ -66,13 +67,17 @@ class Game:
 
     def watch(self, obj: Any) -> None:
         """Adds the obj as an observer for the game."""
-        if obj not in self._observers:
-            self._observers.append(obj)
+        if not hasattr(obj, "update"):
+            raise TypeError(f"Observer {obj} must have an 'update' method.")
+        if obj in self._observers:
+            raise ValueError(f"Observer {obj} is already watching Game {self.id_}.")
+        self._observers.append(obj)
 
     def unwatch(self, obj: Any) -> None:
         """Remove the obj from list of observers."""
-        if obj in self._observers:
-            self._observers.remove(obj)
+        if obj not in self._observers:
+            raise ValueError(f"Observer {obj} is not watching Game {self.id_}.")
+        self._observers.remove(obj)
 
     # new
     def _notify(self) -> None:
@@ -82,9 +87,9 @@ class Game:
             if observer in self._observers and hasattr(observer, "update"):
                 try:
                     observer.update(self)
-                except Exception:
+                except Exception as e:
                     # Prevent a failing observer from crashing the game logic
-                    pass
+                    print(f"Error notifying observer {observer}: {e}", file=sys.stderr)
 
     def start(self) -> None:
         """Transitions the game from READY to RUNNING state.
