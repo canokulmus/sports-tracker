@@ -14,6 +14,7 @@ import CupsPage from './pages/CupsPage'
 import CupDetail from './pages/CupDetail'
 import LivePage from './pages/LivePage'
 import WatchedGamesPage from './pages/WatchedGamesPage'
+import WatchedCupsPage from './pages/WatchedCupsPage'
 import { initializeWebSocket, setGlobalErrorHandler, removeGlobalErrorHandler } from './services/api'
 import colors from './styles/colors'
 
@@ -82,7 +83,8 @@ function AppContent() {
           <Route path="cups" element={<CupsPage />} />
           <Route path="cups/:cupId" element={<CupDetail />} />
           <Route path="live" element={<LivePage />} />
-          <Route path="watched" element={<WatchedGamesPage />} />
+          <Route path="watched-games" element={<WatchedGamesPage />} />
+          <Route path="watched-cups" element={<WatchedCupsPage />} />
         </Route>
       </Routes>
       <Dialog />

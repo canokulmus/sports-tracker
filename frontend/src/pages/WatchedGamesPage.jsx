@@ -10,7 +10,7 @@ import GameCard from '../components/Game/GameCard'
 
 function WatchedGamesPage() {
   const navigate = useNavigate()
-  const { watchedGames, unwatchGame, notifications, removeNotification, clearNotifications } = useWatch()
+  const { watchedGames, notifications, removeNotification, clearNotifications } = useWatch()
   const lastNotificationIdRef = useRef(null)
 
   const fetchWatchedGames = async () => {
@@ -32,11 +32,6 @@ function WatchedGamesPage() {
       }
     }
   }, [notifications, reload])
-
-  const handleUnwatch = (gameId) => {
-    unwatchGame(gameId)
-    reload()
-  }
 
   if (loading) {
     return <Loader text="Loading watched games..." />
@@ -132,13 +127,6 @@ function WatchedGamesPage() {
                 variant="default"
                 onClick={(gameId) => navigate(`/games/${gameId}`)}
               />
-              <button
-                onClick={() => handleUnwatch(game.id)}
-                style={styles.unwatchBtn}
-              >
-                <Trash2 size={14} />
-                <span>Unwatch</span>
-              </button>
             </div>
           ))}
         </div>

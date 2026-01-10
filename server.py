@@ -25,6 +25,7 @@ repo_lock = threading.RLock()
 # User management: Store registered users
 registered_users = set()  # Set of usernames
 user_watches = {}  # Username -> Set[int]
+cup_watch_sources = {}  # Username -> Dict[game_id, cup_id] - tracks which games are auto-watched from cups
 users_lock = threading.RLock()
 
 
@@ -155,9 +156,13 @@ class Session:
                                 instance = repository._objects[oid]['instance']
                                 if hasattr(instance, 'watch'):
                                     if oid not in self.watched_ids:
-                                        instance.watch(self.observer)
+                                        try:
+                                            instance.watch(self.observer)
+                                        except ValueError:
+                                            # Already watching - this is OK (e.g., game already watched via cup)
+                                            pass
                                         self.watched_ids.append(oid)
-                                        
+
                                         # Send immediate update
                                         if isinstance(instance, Game):
                                             self.observer.update(instance)
@@ -432,10 +437,15 @@ class Session:
                     # Attach this session's observer to the game object.
                     instance = repository._objects[oid]['instance']
                     if hasattr(instance, 'watch'):
-                        instance.watch(self.observer)
+                        try:
+                            instance.watch(self.observer)
+                        except ValueError:
+                            # Already watching - this is OK, just ignore
+                            pass
+
                         if oid not in self.watched_ids:
                             self.watched_ids.append(oid)
-                        
+
                         # Persist watch for user
                         if self.user != "Anonymous":
                             with users_lock:
@@ -448,10 +458,46 @@ class Session:
                         if isinstance(instance, Game):
                             self.observer.update(instance)
 
-                        # If it's a cup, send updates for all its games
+                        # If it's a cup, auto-watch all games in the cup
                         if isinstance(instance, Cup):
+                            auto_watched_games = []
                             for game in instance.games:
-                                self.observer.update(game)
+                                # Find game ID
+                                game_id = None
+                                for gid, gdata in repository._objects.items():
+                                    if gdata['instance'] is game:
+                                        game_id = gid
+                                        break
+
+                                if game_id is not None:
+                                    # Watch the game
+                                    try:
+                                        game.watch(self.observer)
+                                    except ValueError:
+                                        # Already watching - this is OK, just ignore
+                                        pass
+
+                                    if game_id not in self.watched_ids:
+                                        self.watched_ids.append(game_id)
+
+                                    # Track this as auto-watched from cup
+                                    if self.user != "Anonymous":
+                                        with users_lock:
+                                            if self.user not in cup_watch_sources:
+                                                cup_watch_sources[self.user] = {}
+                                            cup_watch_sources[self.user][game_id] = oid
+
+                                            # Add to user watches
+                                            if self.user not in user_watches:
+                                                user_watches[self.user] = set()
+                                            user_watches[self.user].add(game_id)
+                                            save_state()
+
+                                    auto_watched_games.append(game_id)
+                                    # Send immediate update
+                                    self.observer.update(game)
+
+                            return {"status": "OK", "message": f"Watching {oid}", "auto_watched_games": auto_watched_games}
 
                         return {"status": "OK", "message": f"Watching {oid}"}
                     return {"status": "ERROR", "message": f"Object with ID {oid} is not watchable (must implement 'watch' method)."}
@@ -468,10 +514,48 @@ class Session:
                     # Remove this session's observer from the object
                     instance = repository._objects[oid]['instance']
                     if hasattr(instance, 'unwatch'):
-                        instance.unwatch(self.observer)
+                        try:
+                            instance.unwatch(self.observer)
+                        except ValueError:
+                            # Not watching - this is OK, just ignore
+                            pass
+
                         if oid in self.watched_ids:
                             self.watched_ids.remove(oid)
-                        
+
+                        # If it's a cup, auto-unwatch all games that were auto-watched from this cup
+                        if isinstance(instance, Cup):
+                            auto_unwatched_games = []
+                            if self.user != "Anonymous":
+                                with users_lock:
+                                    if self.user in cup_watch_sources:
+                                        # Find all games that were auto-watched from this cup
+                                        games_to_unwatch = [game_id for game_id, cup_id in cup_watch_sources[self.user].items() if cup_id == oid]
+
+                                        for game_id in games_to_unwatch:
+                                            # Find the game instance
+                                            if game_id in repository._objects:
+                                                game = repository._objects[game_id]['instance']
+                                                if isinstance(game, Game):
+                                                    try:
+                                                        game.unwatch(self.observer)
+                                                    except ValueError:
+                                                        pass
+
+                                                    if game_id in self.watched_ids:
+                                                        self.watched_ids.remove(game_id)
+
+                                                    # Remove from user watches
+                                                    if game_id in user_watches.get(self.user, set()):
+                                                        user_watches[self.user].remove(game_id)
+
+                                                    auto_unwatched_games.append(game_id)
+
+                                            # Remove from cup_watch_sources
+                                            del cup_watch_sources[self.user][game_id]
+
+                                        save_state()
+
                         # Remove persistence
                         if self.user != "Anonymous":
                             with users_lock:
@@ -512,6 +596,11 @@ class Session:
                                     if score > 0:
                                         away_scorers.append({"name": player_name, "goals": score})
 
+                                # Check if this game is auto-watched from a cup
+                                auto_watched_from_cup = None
+                                if self.user != "Anonymous" and self.user in cup_watch_sources:
+                                    auto_watched_from_cup = cup_watch_sources[self.user].get(oid)
+
                                 watched_games.append({
                                     "id": oid,
                                     "home": instance.home().team_name,
@@ -523,9 +612,33 @@ class Session:
                                     "scorers": {"home": home_scorers, "away": away_scorers},
                                     "timeline": instance.timeline,
                                     "datetime": instance.datetime.isoformat() if instance.datetime and hasattr(instance, 'isoformat') else str(instance.datetime) if instance.datetime else None,
-                                    "group": instance.group
+                                    "group": instance.group,
+                                    "autoWatchedFromCup": auto_watched_from_cup
                                 })
                     return {"status": "OK", "games": watched_games}
+
+            elif cmd == "GET_WATCHED_CUPS":
+                with repo_lock:
+                    watched_cups = []
+                    for oid in self.watched_ids:
+                        if oid in repository._objects:
+                            instance = repository._objects[oid]['instance']
+                            if isinstance(instance, Cup):
+                                # Count games by state
+                                game_count = len(instance.games)
+                                running_count = sum(1 for g in instance.games if g.state == GameState.RUNNING)
+                                ended_count = sum(1 for g in instance.games if g.state == GameState.ENDED)
+
+                                watched_cups.append({
+                                    "id": oid,
+                                    "name": getattr(instance, 'name', f'Cup {oid}'),
+                                    "type": instance.cup_type,
+                                    "teams": [{"id": tid, "name": t.team_name} for tid, t in enumerate(instance.teams)],
+                                    "gameCount": game_count,
+                                    "runningGames": running_count,
+                                    "endedGames": ended_count
+                                })
+                    return {"status": "OK", "cups": watched_cups}
 
             elif cmd == "GET_GAME_STATS":
                 gid = req.get("id")
@@ -909,12 +1022,17 @@ class Session:
                                 if gid in self.watched_ids:
                                     self.watched_ids.remove(gid)
                                 repository.delete(gid)
-                                
+
                                 # Clean up global watches for this game
                                 with users_lock:
                                     for u_watches in user_watches.values():
                                         if gid in u_watches:
                                             u_watches.discard(gid)
+
+                                    # Clean up cup_watch_sources for this game
+                                    for user_cup_sources in cup_watch_sources.values():
+                                        if gid in user_cup_sources:
+                                            del user_cup_sources[gid]
 
                         # Auto-detach current user to allow deletion if they are the only one
                         # Attempt to detach user if attached (handles persistence across restarts)
@@ -1004,7 +1122,7 @@ def load_state():
     Implements persistency by loading the entire repository from a pickle file.
     This is done once at server startup.
     """
-    global repository, registered_users, user_watches
+    global repository, registered_users, user_watches, cup_watch_sources
     if os.path.exists(SAVE_FILE):
         try:
             with repo_lock:
@@ -1019,6 +1137,7 @@ def load_state():
                         with users_lock:
                             registered_users = saved_data.get('users', set())
                             user_watches = saved_data.get('user_watches', {})
+                            cup_watch_sources = saved_data.get('cup_watch_sources', {})
                     else:
                         repository = Repo()
 
@@ -1055,7 +1174,8 @@ def save_state():
                     saved_data = {
                         'repository': repository,
                         'users': registered_users,
-                        'user_watches': user_watches
+                        'user_watches': user_watches,
+                        'cup_watch_sources': cup_watch_sources
                     }
                 pickle.dump(saved_data, f)
             print(f"DEBUG: Saved state. Users: {len(registered_users)}, Watches: {sum(len(v) for v in user_watches.values())}")

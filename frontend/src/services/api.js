@@ -383,12 +383,26 @@ export const watchApi = {
     return (response.games || []).map(transformGame);
   },
 
+  getWatchedCups: async () => {
+    const response = await wsClient.sendCommand('GET_WATCHED_CUPS');
+    return response.cups || [];
+  },
+
   watch: async (id) => {
     await wsClient.sendCommand('WATCH', { id });
   },
 
   unwatch: async (id) => {
     await wsClient.sendCommand('UNWATCH', { id });
+  },
+
+  watchCup: async (cupId) => {
+    const response = await wsClient.sendCommand('WATCH', { id: cupId });
+    return response;
+  },
+
+  unwatchCup: async (cupId) => {
+    await wsClient.sendCommand('UNWATCH', { id: cupId });
   }
 };
 

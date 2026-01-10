@@ -8,10 +8,13 @@ import { Loader } from '../components/Loader'
 import StandingsTable from '../components/Cup/StandingsTable'
 import GameTree from '../components/Cup/GameTree'
 import GameCard from '../components/Game/GameCard'
+import WatchButton from '../components/WatchButton'
+import { useWatch } from '../context/WatchContext'
 
 function CupDetail() {
   const { cupId } = useParams()
   const navigate = useNavigate()
+  const { isWatchingCup, toggleWatchCup } = useWatch()
 
   const [cup, setCup] = useState(null)
   const [standings, setStandings] = useState(null)
@@ -114,6 +117,11 @@ function CupDetail() {
           <div style={styles.titleRow}>
             <Trophy size={28} color={colors.brand.primary} />
             <h1 className="page-title" style={{ marginBottom: 0 }}>{cup.name}</h1>
+            <WatchButton
+              isWatching={isWatchingCup(parseInt(cupId))}
+              onToggle={() => toggleWatchCup(parseInt(cupId))}
+              variant="default"
+            />
           </div>
           <div style={styles.meta}>
             <span

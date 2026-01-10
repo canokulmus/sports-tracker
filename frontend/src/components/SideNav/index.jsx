@@ -58,11 +58,12 @@ const SideNav = forwardRef(({ onToggle }, ref) => {
     }
   }))
 
-  const { watchedGames } = useWatch()
+  const { watchedGames, watchedCups } = useWatch()
 
   const navItems = [
     { to: '/live', icon: Radio, label: 'Live Scores' },
-    { to: '/watched', icon: Eye, label: 'Watched', badge: watchedGames.length },
+    { to: '/watched-games', icon: Eye, label: 'Watched Games', badge: watchedGames.length },
+    { to: '/watched-cups', icon: Trophy, label: 'Watched Cups', badge: watchedCups.length },
     { to: '/teams', icon: Users, label: 'Teams' },
     { to: '/games', icon: Gamepad2, label: 'Games' },
     { to: '/cups', icon: Award, label: 'Tournaments' },

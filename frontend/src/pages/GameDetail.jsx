@@ -8,7 +8,7 @@ import { Loader } from '../components/Loader'
 import StatusBadge from '../components/Game/StatusBadge'
 import ScorersList from '../components/Game/ScorersList'
 import GoalDropdown from '../components/Game/GoalDropdown'
-import { WatchButton } from '../components/WatchButton'
+import WatchButton from '../components/WatchButton'
 
 function GameDetail() {
   const { gameId } = useParams()
