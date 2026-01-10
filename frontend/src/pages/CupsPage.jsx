@@ -10,9 +10,22 @@ import { useDialog } from '../context/DialogContext'
 function TypeBadge({ type }) {
   const tournamentColors = {
     LEAGUE: colors.tournament.league,
+    LEAGUE2: colors.tournament.league,
     ELIMINATION: colors.tournament.elimination,
+    ELIMINATION2: colors.tournament.elimination,
     GROUP: colors.tournament.group,
+    GROUP2: colors.tournament.group,
   }
+
+  const displayNames = {
+    LEAGUE: 'LEAGUE',
+    LEAGUE2: 'LEAGUE2',
+    ELIMINATION: 'ELIMINATION',
+    ELIMINATION2: 'ELIMINATION2',
+    GROUP: 'GROUP',
+    GROUP2: 'GROUP2',
+  }
+
   return (
     <span
       className="badge"
@@ -21,7 +34,7 @@ function TypeBadge({ type }) {
         color: colors.quickColors.white,
       }}
     >
-      {type}
+      {displayNames[type] || type}
     </span>
   )
 }
@@ -64,7 +77,7 @@ function CupsPage() {
     }
 
     // Validation for GROUP tournaments
-    if (cupType === 'GROUP') {
+    if (cupType === 'GROUP' || cupType === 'GROUP2') {
       if (selectedTeamIds.length < numGroups * 2) {
         alert({
           title: 'Invalid Configuration',
@@ -148,13 +161,16 @@ function CupsPage() {
                   onChange={(e) => setCupType(e.target.value)}
                 >
                   <option value="LEAGUE">League (Round Robin)</option>
+                  <option value="LEAGUE2">League 2 (Home & Away)</option>
                   <option value="ELIMINATION">Elimination (Knockout)</option>
+                  <option value="ELIMINATION2">Elimination 2 (Two-Leg)</option>
                   <option value="GROUP">Group + Playoff</option>
+                  <option value="GROUP2">Group 2 + Playoff (Home & Away)</option>
                 </select>
               </div>
             </div>
 
-            {cupType === 'GROUP' && (
+            {(cupType === 'GROUP' || cupType === 'GROUP2') && (
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">Number of Groups</label>

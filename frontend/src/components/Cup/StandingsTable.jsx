@@ -114,12 +114,12 @@ function StandingsTable({ standings, cupType }) {
     )
   }
 
-  // GROUP tournament has object with group names
-  if (cupType === 'GROUP' && typeof standings === 'object' && !Array.isArray(standings)) {
+  // GROUP tournament has object with group names (both GROUP and GROUP2)
+  if ((cupType === 'GROUP' || cupType === 'GROUP2') && typeof standings === 'object' && !Array.isArray(standings)) {
     return <GroupStandings standings={standings} />
   }
 
-  // LEAGUE tournament has array
+  // LEAGUE tournament has array (both LEAGUE and LEAGUE2)
   if (Array.isArray(standings)) {
     return <LeagueStandings standings={standings} />
   }

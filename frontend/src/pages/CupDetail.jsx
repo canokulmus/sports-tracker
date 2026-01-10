@@ -53,14 +53,14 @@ function CupDetail() {
       setCup(cupData)
 
       // Set default tab based on cup type
-      if (cupData.type === 'ELIMINATION') {
+      if (cupData.type === 'ELIMINATION' || cupData.type === 'ELIMINATION2') {
         setActiveTab('bracket')
       } else {
         setActiveTab('standings')
       }
 
-      // Load standings (not needed for ELIMINATION)
-      if (cupData.type !== 'ELIMINATION') {
+      // Load standings (not needed for ELIMINATION types)
+      if (cupData.type !== 'ELIMINATION' && cupData.type !== 'ELIMINATION2') {
         const standingsData = await cupApi.getStandings(parseInt(cupId))
         setStandings(standingsData)
       }
@@ -70,7 +70,8 @@ function CupDetail() {
       setFixtures(cupGames)
 
       // Load GameTree for GROUP and ELIMINATION tournaments
-      if (cupData.type === 'GROUP' || cupData.type === 'ELIMINATION') {
+      const needsGameTree = ['GROUP', 'GROUP2', 'ELIMINATION', 'ELIMINATION2'].includes(cupData.type)
+      if (needsGameTree) {
         try {
           const gameTreeData = await cupApi.getGameTree(parseInt(cupId))
           setGameTree(gameTreeData)
@@ -142,8 +143,8 @@ function CupDetail() {
 
       {/* Tabs */}
       <div style={styles.tabs}>
-        {/* Standings tab - only for LEAGUE and GROUP */}
-        {cup.type !== 'ELIMINATION' && (
+        {/* Standings tab - only for LEAGUE and GROUP types */}
+        {cup.type !== 'ELIMINATION' && cup.type !== 'ELIMINATION2' && (
           <button
             style={{
               ...styles.tab,
@@ -155,8 +156,8 @@ function CupDetail() {
           </button>
         )}
 
-        {/* Knockout/Bracket tab - only for ELIMINATION */}
-        {cup.type === 'ELIMINATION' && (
+        {/* Knockout/Bracket tab - only for ELIMINATION types */}
+        {(cup.type === 'ELIMINATION' || cup.type === 'ELIMINATION2') && (
           <button
             style={{
               ...styles.tab,
@@ -181,8 +182,8 @@ function CupDetail() {
           Fixtures
         </button>
 
-        {/* Playoff Stage tab - only for GROUP */}
-        {cup.type === 'GROUP' && (
+        {/* Playoff Stage tab - only for GROUP types */}
+        {(cup.type === 'GROUP' || cup.type === 'GROUP2') && (
           <button
             style={{
               ...styles.tab,
@@ -266,8 +267,11 @@ function CupDetail() {
 function getTournamentColor(type) {
   const colorMap = {
     LEAGUE: colors.tournament.league,
+    LEAGUE2: colors.tournament.league,
     ELIMINATION: colors.tournament.elimination,
+    ELIMINATION2: colors.tournament.elimination,
     GROUP: colors.tournament.group,
+    GROUP2: colors.tournament.group,
   }
   return colorMap[type] || colors.text.muted
 }

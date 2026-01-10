@@ -94,8 +94,8 @@ function GameTree({ gameTree, cupType, playoffOnly = false }) {
     )
   }
 
-  // GROUP tournament: Groups + Playoffs
-  if (cupType === 'GROUP') {
+  // GROUP tournament: Groups + Playoffs (both GROUP and GROUP2)
+  if (cupType === 'GROUP' || cupType === 'GROUP2') {
     // If playoffOnly is true, only show the playoff bracket
     if (playoffOnly) {
       if (gameTree.Playoffs && Object.keys(gameTree.Playoffs).length > 0) {
@@ -127,7 +127,7 @@ function GameTree({ gameTree, cupType, playoffOnly = false }) {
     )
   }
 
-  // ELIMINATION tournament: Just the bracket
+  // ELIMINATION tournament: Just the bracket (both ELIMINATION and ELIMINATION2)
   return (
     <div style={styles.container}>
       <EliminationBracket gameTree={gameTree} />

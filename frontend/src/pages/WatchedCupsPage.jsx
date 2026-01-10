@@ -199,8 +199,11 @@ function WatchedCupsPage() {
 function getTournamentColor(type) {
   const colorMap = {
     LEAGUE: colors.tournament.league,
+    LEAGUE2: colors.tournament.league,
     ELIMINATION: colors.tournament.elimination,
+    ELIMINATION2: colors.tournament.elimination,
     GROUP: colors.tournament.group,
+    GROUP2: colors.tournament.group,
   }
   return colorMap[type] || colors.text.muted
 }
