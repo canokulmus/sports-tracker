@@ -276,6 +276,19 @@ export const gameApi = {
     await wsClient.sendCommand('DELETE', { id });
     return { success: true };
   },
+
+  search: async ({ teamName, group, startDate, endDate, cupId } = {}) => {
+    const params = {};
+
+    if (teamName) params.tname = teamName;
+    if (group) params.group = group;
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    if (cupId) params.cup_id = cupId;
+
+    const response = await wsClient.sendCommand('SEARCH_GAMES', params);
+    return (response.games || []).map(transformGame);
+  },
 };
 
 // ==========================================

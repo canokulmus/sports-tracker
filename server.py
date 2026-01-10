@@ -277,6 +277,108 @@ class Session:
                             })
                 return {"status": "OK", "games": games}
 
+            elif cmd == "SEARCH_GAMES":
+                # Get search parameters
+                tname = req.get("tname")  # Team name
+                group = req.get("group")  # Group name
+                start_date = req.get("start_date")  # ISO format string
+                end_date = req.get("end_date")  # ISO format string
+                cup_id = req.get("cup_id")  # Optional: search within specific cup
+
+                with repo_lock:
+                    # Collect all games matching the criteria
+                    all_matching_games = []
+
+                    # If cup_id is provided, search only in that cup
+                    if cup_id is not None:
+                        cup_obj = repository._objects.get(int(cup_id))
+                        if cup_obj and isinstance(cup_obj['instance'], Cup):
+                            cup = cup_obj['instance']
+
+                            # Parse dates if provided
+                            between = None
+                            if start_date and end_date:
+                                from datetime import datetime
+                                # Parse ISO format and convert to naive datetime (no timezone info)
+                                start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00')).replace(tzinfo=None)
+                                end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00')).replace(tzinfo=None)
+                                between = (start_dt, end_dt)
+
+                            # Use Cup.search method
+                            matching_games = cup.search(tname=tname, group=group, between=between)
+
+                            # Find game IDs
+                            for game in matching_games:
+                                for gid, gdata in repository._objects.items():
+                                    if gdata['instance'] is game:
+                                        all_matching_games.append((gid, game))
+                                        break
+                    else:
+                        # Search in all cups
+                        for oid, data in repository._objects.items():
+                            if isinstance(data['instance'], Cup):
+                                cup = data['instance']
+
+                                # Parse dates if provided
+                                between = None
+                                if start_date and end_date:
+                                    from datetime import datetime
+                                    # Parse ISO format and convert to naive datetime (no timezone info)
+                                    start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00')).replace(tzinfo=None)
+                                    end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00')).replace(tzinfo=None)
+                                    between = (start_dt, end_dt)
+
+                                # Use Cup.search method
+                                matching_games = cup.search(tname=tname, group=group, between=between)
+
+                                # Find game IDs
+                                for game in matching_games:
+                                    for gid, gdata in repository._objects.items():
+                                        if gdata['instance'] is game:
+                                            all_matching_games.append((gid, game))
+                                            break
+
+                    # Build response with game details
+                    games = []
+                    for gid, g in all_matching_games:
+                        # Find team IDs
+                        home_id = None
+                        away_id = None
+                        for tid, tdata in repository._objects.items():
+                            if tdata['instance'] is g.home_:
+                                home_id = tid
+                            if tdata['instance'] is g.away_:
+                                away_id = tid
+
+                        # Get scorers from stats
+                        stats = g.stats()
+                        home_scorers = []
+                        away_scorers = []
+
+                        for player_name, score in stats['Home']['Players'].items():
+                            if score > 0:
+                                home_scorers.append({"name": player_name, "goals": score})
+
+                        for player_name, score in stats['Away']['Players'].items():
+                            if score > 0:
+                                away_scorers.append({"name": player_name, "goals": score})
+
+                        games.append({
+                            "id": gid,
+                            "home": g.home().team_name,
+                            "away": g.away().team_name,
+                            "home_id": home_id,
+                            "away_id": away_id,
+                            "state": g.state.name,
+                            "score": {"home": g.home_score, "away": g.away_score},
+                            "scorers": {"home": home_scorers, "away": away_scorers},
+                            "timeline": g.timeline,
+                            "datetime": g.datetime.isoformat() if g.datetime and hasattr(g.datetime, 'isoformat') else str(g.datetime) if g.datetime else None,
+                            "group": g.group
+                        })
+
+                    return {"status": "OK", "games": games, "count": len(games)}
+
             elif cmd == "SEARCH":
                 query = req.get("query")
                 if not query: return {"status": "ERROR", "message": "Missing 'query' parameter for SEARCH command."}

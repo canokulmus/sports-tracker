@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
-import { gameApi, teamApi } from '../services/api'
+import { Plus, Search, Filter, X } from 'lucide-react'
+import { gameApi, teamApi, cupApi } from '../services/api'
 import { GameCard } from '../components/Game'
 import { useApiData, useToggle, useFormState, useGames } from '../hooks'
 import { Loader } from '../components/Loader'
@@ -10,14 +10,30 @@ import Tabs from '../components/Tabs'
 function GamesPage() {
   const navigate = useNavigate()
   const { value: showForm, toggle: toggleForm } = useToggle(false)
+  const { value: showSearchFilters, toggle: toggleSearchFilters } = useToggle(false)
   const { formData: newGame, updateField, resetForm } = useFormState({ homeId: '', awayId: '' })
   const [activeTab, setActiveTab] = useState('all')
 
+  // Search state
+  const [searchParams, setSearchParams] = useState({
+    teamName: '',
+    group: '',
+    startDate: '',
+    endDate: '',
+    cupId: ''
+  })
+  const [isSearchActive, setIsSearchActive] = useState(false)
+  const [searchResults, setSearchResults] = useState([])
+  const [cups, setCups] = useState([])
+
   const loadGamesData = async () => {
-    const [gamesData, teamsData] = await Promise.all([
+    const [gamesData, teamsData, cupsData] = await Promise.all([
       gameApi.getAll(),
       teamApi.getAll(),
+      cupApi.getAll(),
     ])
+
+    setCups(cupsData ?? [])
 
     const playersMap = {}
     for (const game of gamesData ?? []) {
@@ -34,23 +50,89 @@ function GamesPage() {
     }
   }
 
+  // Search handler
+  const handleSearch = async (e) => {
+    e.preventDefault()
+
+    // Check if any search parameter is filled
+    const hasSearchParams = Object.values(searchParams).some(val => val !== '')
+
+    if (!hasSearchParams) {
+      // If no params, reset to show all games
+      setIsSearchActive(false)
+      setSearchResults([])
+      return
+    }
+
+    try {
+      // Convert dates to ISO format if provided
+      const searchQuery = { ...searchParams }
+      if (searchQuery.startDate) {
+        searchQuery.startDate = new Date(searchQuery.startDate).toISOString()
+      }
+      if (searchQuery.endDate) {
+        // Set to end of day
+        const endDate = new Date(searchQuery.endDate)
+        endDate.setHours(23, 59, 59, 999)
+        searchQuery.endDate = endDate.toISOString()
+      }
+
+      const results = await gameApi.search(searchQuery)
+      setSearchResults(results)
+      setIsSearchActive(true)
+
+      // Load players for search results
+      const playersMap = {}
+      for (const game of results) {
+        if (game?.id) {
+          const players = await gameApi.getPlayersForGame(game.id)
+          playersMap[game.id] = players ?? { home: [], away: [] }
+        }
+      }
+
+      // Update gamePlayers with search results
+      data.gamePlayers = { ...data.gamePlayers, ...playersMap }
+    } catch (error) {
+      console.error('Search failed:', error)
+    }
+  }
+
+  const updateSearchParam = (key, value) => {
+    setSearchParams(prev => ({ ...prev, [key]: value }))
+  }
+
+  const clearSearch = () => {
+    setSearchParams({
+      teamName: '',
+      group: '',
+      startDate: '',
+      endDate: '',
+      cupId: ''
+    })
+    setIsSearchActive(false)
+    setSearchResults([])
+  }
+
   const { data, loading, reload } = useApiData(loadGamesData)
   const allGames = data?.games ?? []
   const teams = data?.teams ?? []
   const gamePlayers = data?.gamePlayers ?? {}
 
+  // Use search results if search is active, otherwise use all games
+  const displayGames = isSearchActive ? searchResults : allGames
+
   // Filter games by tab
   const filteredGames = activeTab === 'all'
-    ? allGames
-    : allGames.filter(game => game.state === activeTab.toUpperCase())
+    ? displayGames
+    : displayGames.filter(game => game.state === activeTab.toUpperCase())
 
-  // Count games by state
+  // Count games by state (from displayed games)
   const gameCounts = {
-    all: allGames.length,
-    ready: allGames.filter(g => g.state === 'READY').length,
-    running: allGames.filter(g => g.state === 'RUNNING').length,
-    paused: allGames.filter(g => g.state === 'PAUSED').length,
-    ended: allGames.filter(g => g.state === 'ENDED').length,
+    all: displayGames.length,
+    ready: displayGames.filter(g => g.state === 'READY').length,
+    running: displayGames.filter(g => g.state === 'RUNNING').length,
+    paused: displayGames.filter(g => g.state === 'PAUSED').length,
+    ended: displayGames.filter(g => g.state === 'ENDED').length,
   }
 
   // Define tabs
@@ -144,6 +226,109 @@ function GamesPage() {
           </form>
         </div>
       )}
+
+      {/* Search Section */}
+      <div className="card mb-4">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="card-title">Search Games</h3>
+          {isSearchActive && (
+            <button onClick={clearSearch} className="btn btn-secondary btn-sm">
+              <X size={16} />
+              Clear Search
+            </button>
+          )}
+          <button onClick={toggleSearchFilters} className="btn btn-secondary btn-sm">
+            <Filter size={16} />
+            {showSearchFilters ? 'Hide Filters' : 'Show Filters'}
+          </button>
+        </div>
+
+        <form onSubmit={handleSearch}>
+          <div className="form-row">
+            {/* Team Name Search */}
+            <div className="form-group">
+              <label className="form-label">Team Name</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Search by team name..."
+                value={searchParams.teamName}
+                onChange={(e) => updateSearchParam('teamName', e.target.value)}
+              />
+            </div>
+
+            {/* Search Button */}
+            <div className="form-group" style={{ alignSelf: 'flex-end' }}>
+              <button type="submit" className="btn btn-primary">
+                <Search size={16} />
+                Search
+              </button>
+            </div>
+          </div>
+
+          {/* Advanced Filters */}
+          {showSearchFilters && (
+            <div className="form-row mt-3">
+              {/* Group Filter */}
+              <div className="form-group">
+                <label className="form-label">Group</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g., A, B, C..."
+                  value={searchParams.group}
+                  onChange={(e) => updateSearchParam('group', e.target.value)}
+                />
+              </div>
+
+              {/* Cup Filter */}
+              <div className="form-group">
+                <label className="form-label">Tournament</label>
+                <select
+                  className="form-select"
+                  value={searchParams.cupId}
+                  onChange={(e) => updateSearchParam('cupId', e.target.value)}
+                >
+                  <option value="">All Tournaments</option>
+                  {cups.map((cup) => (
+                    <option key={cup.id} value={cup.id}>
+                      {cup.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Start Date Filter */}
+              <div className="form-group">
+                <label className="form-label">Start Date</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={searchParams.startDate}
+                  onChange={(e) => updateSearchParam('startDate', e.target.value)}
+                />
+              </div>
+
+              {/* End Date Filter */}
+              <div className="form-group">
+                <label className="form-label">End Date</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={searchParams.endDate}
+                  onChange={(e) => updateSearchParam('endDate', e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+        </form>
+
+        {isSearchActive && (
+          <div className="mt-3 text-sm" style={{ color: '#6b7280' }}>
+            Found {searchResults.length} game{searchResults.length !== 1 ? 's' : ''}
+          </div>
+        )}
+      </div>
 
       {/* Tabs */}
       <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
