@@ -150,9 +150,10 @@ export const teamApi = {
   },
 
   deleteCustomField: async (teamId, key) => {
-    // Backend doesn't have explicit delete field command
-    // We'll set it to empty string or handle it differently
-    console.warn('Delete custom field not implemented in backend');
+    await wsClient.sendCommand('DELETE_CUSTOM_FIELD', {
+      team_id: teamId,
+      key: key
+    });
     return await teamApi.getById(teamId);
   },
 };

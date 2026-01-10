@@ -339,6 +339,22 @@ class Session:
                         return {"status": "OK", "message": f"Player {pname} removed"}
                     return {"status": "ERROR", "message": f"Team with ID {tid} not found for REMOVE_PLAYER command."}
 
+            elif cmd == "DELETE_CUSTOM_FIELD":
+                tid = req.get("team_id")
+                field_key = req.get("key")
+                if tid is None or not field_key:
+                    return {"status": "ERROR", "message": "Missing 'team_id' or 'key' parameters for DELETE_CUSTOM_FIELD command."}
+                with repo_lock:
+                    obj = repository._objects.get(int(tid))
+                    if obj and isinstance(obj['instance'], Team):
+                        try:
+                            delattr(obj['instance'], field_key)
+                            save_state()
+                            return {"status": "OK", "message": f"Custom field '{field_key}' deleted"}
+                        except AttributeError:
+                            return {"status": "ERROR", "message": f"Custom field '{field_key}' not found"}
+                    return {"status": "ERROR", "message": f"Team with ID {tid} not found for DELETE_CUSTOM_FIELD command."}
+
             elif cmd == "GET_PLAYERS":
                 tid = req.get("team_id")
                 if tid is None: return {"status": "ERROR", "message": "Missing 'team_id' parameter for GET_PLAYERS command."}
