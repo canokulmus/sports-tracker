@@ -1,4 +1,3 @@
-// src/pages/GameDetail.jsx
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Play, Pause, Square, Trophy, Clock, Calendar } from 'lucide-react'
@@ -6,7 +5,6 @@ import { gameApi, onGameNotification } from '../services/api'
 import { colors } from '../styles/colors'
 import { Loader } from '../components/Loader'
 import StatusBadge from '../components/Game/StatusBadge'
-import ScorersList from '../components/Game/ScorersList'
 import GoalDropdown from '../components/Game/GoalDropdown'
 import WatchButton from '../components/WatchButton'
 
@@ -15,14 +13,12 @@ function GameDetail() {
   const navigate = useNavigate()
   const [game, setGame] = useState(null)
   const [players, setPlayers] = useState({ home: [], away: [] })
-  const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadGameData()
   }, [gameId])
 
-  // Listen for WebSocket notifications to update game data in real-time
   useEffect(() => {
     const unsubscribe = onGameNotification((notification) => {
       // Reload game data if this game was updated
@@ -43,24 +39,8 @@ function GameDetail() {
       const gameData = await gameApi.getById(parseInt(gameId))
       setGame(gameData)
 
-      // Load players
       const playersData = await gameApi.getPlayersForGame(parseInt(gameId))
       setPlayers(playersData)
-
-      // TODO: Add getStats API call when implemented
-      // For now, derive basic stats from game data
-      if (gameData) {
-        setStats({
-          home: {
-            goals: gameData.score?.home || 0,
-            scorers: gameData.scorers?.home || []
-          },
-          away: {
-            goals: gameData.score?.away || 0,
-            scorers: gameData.scorers?.away || []
-          }
-        })
-      }
     } catch (error) {
       console.error('Failed to load game data:', error)
     } finally {
@@ -117,11 +97,9 @@ function GameDetail() {
   const isPaused = game.state === 'PAUSED'
   const isReady = game.state === 'READY'
   const isEnded = game.state === 'ENDED'
-  const isLive = isRunning || isPaused
 
   return (
     <div style={styles.container}>
-      {/* Header */}
       <div style={styles.header}>
         <button
           style={styles.backButton}
@@ -137,7 +115,6 @@ function GameDetail() {
         </div>
       </div>
 
-      {/* Match Card */}
       <div className="card" style={styles.matchCard}>
         <div style={styles.matchHeader}>
           <div style={styles.matchHeaderLeft}>
@@ -152,9 +129,7 @@ function GameDetail() {
           )}
         </div>
 
-        {/* Score Display */}
         <div style={styles.scoreBoard}>
-          {/* Home Team */}
           <div style={styles.team}>
             <h2 style={styles.teamName}>{homeName}</h2>
             <div style={{
@@ -165,12 +140,10 @@ function GameDetail() {
             </div>
           </div>
 
-          {/* VS Separator */}
           <div style={styles.separator}>
             <span style={styles.vs}>VS</span>
           </div>
 
-          {/* Away Team */}
           <div style={styles.team}>
             <h2 style={styles.teamName}>{awayName}</h2>
             <div style={{
@@ -182,7 +155,6 @@ function GameDetail() {
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div style={styles.actions}>
           {isReady && (
             <button
@@ -239,7 +211,6 @@ function GameDetail() {
         </div>
       </div>
 
-      {/* Stats Section */}
       <div className="card" style={styles.statsCard}>
         <h3 className="card-title" style={styles.sectionTitle}>
           <Trophy size={20} />
@@ -247,7 +218,6 @@ function GameDetail() {
         </h3>
 
         <div style={styles.statsGrid}>
-          {/* Home Team Stats */}
           <div style={styles.teamStats}>
             <h4 style={styles.teamStatsTitle}>{homeName}</h4>
 
@@ -265,7 +235,6 @@ function GameDetail() {
                     const goals = scorer?.goals || 1
                     const minutes = scorer?.minutes || []
 
-                    // Helper to format time string (MM:SS.ff -> M')
                     const formatMinute = (timeStr) => {
                       if (!timeStr) return null
                       const mins = Math.floor(parseFloat(timeStr.split(':')[0]))
@@ -295,7 +264,6 @@ function GameDetail() {
               </div>
             )}
 
-            {/* Score Goal Button for Running Games */}
             {isRunning && (
               <div style={styles.goalAction}>
                 <GoalDropdown
@@ -307,10 +275,8 @@ function GameDetail() {
             )}
           </div>
 
-          {/* Center Divider */}
           <div style={styles.statsDivider} />
 
-          {/* Away Team Stats */}
           <div style={styles.teamStats}>
             <h4 style={styles.teamStatsTitle}>{awayName}</h4>
 
@@ -328,7 +294,6 @@ function GameDetail() {
                     const goals = scorer?.goals || 1
                     const minutes = scorer?.minutes || []
 
-                    // Helper to format time string (MM:SS.ff -> M')
                     const formatMinute = (timeStr) => {
                       if (!timeStr) return null
                       const mins = Math.floor(parseFloat(timeStr.split(':')[0]))
@@ -358,7 +323,6 @@ function GameDetail() {
               </div>
             )}
 
-            {/* Score Goal Button for Running Games */}
             {isRunning && (
               <div style={styles.goalAction}>
                 <GoalDropdown
@@ -372,7 +336,6 @@ function GameDetail() {
         </div>
       </div>
 
-      {/* Match Info */}
       <div className="card" style={styles.infoCard}>
         <h3 className="card-title" style={styles.sectionTitle}>
           <Clock size={20} />

@@ -14,18 +14,15 @@ function WatchedGamesPage() {
   const lastNotificationIdRef = useRef(null)
 
   const fetchWatchedGames = async () => {
-    // Get watched games directly from server
     return await watchApi.getWatchedGames()
   }
 
   const { data: games, loading, reload } = useApiData(fetchWatchedGames, [watchedGames])
 
-  // Reload games when NEW notifications arrive (real-time updates)
   useEffect(() => {
     if (notifications.length > 0) {
       const latestNotification = notifications[0]
 
-      // Only reload if this is a new notification
       if (latestNotification.id !== lastNotificationIdRef.current) {
         lastNotificationIdRef.current = latestNotification.id
         reload()

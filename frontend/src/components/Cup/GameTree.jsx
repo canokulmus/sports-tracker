@@ -1,4 +1,3 @@
-// src/components/Cup/GameTree.jsx
 import { colors } from '../../styles/colors'
 import StatusBadge from '../Game/StatusBadge'
 

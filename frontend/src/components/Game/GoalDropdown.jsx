@@ -1,4 +1,3 @@
-// src/components/Game/GoalDropdown.jsx
 import { useState, useEffect, useRef } from 'react'
 import { Target } from 'lucide-react'
 import { colors } from '../../styles/colors'

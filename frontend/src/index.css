@@ -1,6 +1,4 @@
-/* src/index.css */
 
-/* Reset & Base */
 * {
   margin: 0;
   padding: 0;
@@ -46,7 +44,6 @@ body {
   margin-left: 80px;
 }
 
-/* Cards */
 .card {
   background-color: var(--bg-secondary);
   border-radius: 12px;
@@ -67,7 +64,6 @@ body {
   font-weight: 600;
 }
 
-/* Page Header */
 .page-header {
   margin-bottom: 24px;
 }
@@ -82,7 +78,6 @@ body {
   color: var(--text-secondary);
 }
 
-/* Buttons - Subtle Dark Theme */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -166,7 +161,6 @@ body {
   transform: translateY(0);
 }
 
-/* Forms */
 .form-group {
   margin-bottom: 16px;
 }
@@ -202,7 +196,6 @@ body {
   flex: 1;
 }
 
-/* Tables */
 .table-container {
   width: 100%;
   overflow-x: auto;
@@ -251,7 +244,6 @@ body {
   background-color: var(--bg-card);
 }
 
-/* Game Card */
 .game-card {
   background-color: var(--bg-secondary);
   border-radius: 12px;
@@ -318,7 +310,6 @@ body {
   margin-top: 12px;
 }
 
-/* Grid */
 .grid {
   display: grid;
   gap: 16px;
@@ -332,7 +323,6 @@ body {
   grid-template-columns: repeat(3, 1fr);
 }
 
-/* Badge */
 .badge {
   display: inline-block;
   padding: 2px 8px;
@@ -346,7 +336,6 @@ body {
   color: white;
 }
 
-/* Empty State */
 .empty-state {
   text-align: center;
   padding: 48px;
@@ -358,7 +347,6 @@ body {
   margin-bottom: 16px;
 }
 
-/* Utilities */
 .text-center { text-align: center; }
 .text-right { text-align: right; }
 .text-muted { color: var(--text-secondary); }
@@ -372,7 +360,6 @@ body {
 .gap-2 { gap: 0.5rem; }
 .gap-4 { gap: 1rem; }
 
-/* Animations */
 @keyframes pulse {
   0%, 100% {
     opacity: 1;
@@ -420,7 +407,6 @@ body {
   color: var(--text-secondary);
 }
 
-/* Animated Border Keyframes */
 @keyframes borderRotate {
   0% {
     background-position: 0% 50%;
@@ -433,7 +419,6 @@ body {
   }
 }
 
-/* Game Card Hover Effect - Subtle with Animated Border */
 .game-card-hover {
   position: relative;
 }
@@ -475,7 +460,6 @@ body {
   border-color: #6366f140 !important;
 }
 
-/* Live Game Card - Animated Green Border */
 .game-card-live {
   position: relative;
 }
@@ -502,12 +486,10 @@ body {
   pointer-events: none;
 }
 
-/* Mobile Header */
 .mobile-header {
   display: none;
 }
 
-/* Responsive Styles */
 @media (max-width: 768px) {
   .mobile-header {
     display: flex;

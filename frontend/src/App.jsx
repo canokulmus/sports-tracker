@@ -1,4 +1,3 @@
-// src/App.jsx
 import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { DialogProvider, useDialog } from './context/DialogContext'
@@ -18,7 +17,6 @@ import WatchedCupsPage from './pages/WatchedCupsPage'
 import { initializeWebSocket, setGlobalErrorHandler, removeGlobalErrorHandler } from './services/api'
 import colors from './styles/colors'
 
-// Protected Route wrapper
 function ProtectedRoute({ children }) {
   const { user, isLoading } = useUser()
 
@@ -44,16 +42,13 @@ function ProtectedRoute({ children }) {
   return children
 }
 
-// Inner component that has access to Dialog context
 function AppContent() {
   const { alert } = useDialog()
 
   useEffect(() => {
-    // Set up global error handler
     setGlobalErrorHandler((error, context) => {
       console.error('[API Error]', error, context)
 
-      // Show error popup
       alert({
         title: 'Error',
         message: error.message || 'An unexpected error occurred',
@@ -61,7 +56,6 @@ function AppContent() {
       })
     })
 
-    // Cleanup on unmount
     return () => {
       removeGlobalErrorHandler()
     }

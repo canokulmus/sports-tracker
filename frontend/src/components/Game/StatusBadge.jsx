@@ -1,4 +1,3 @@
-// src/components/Game/StatusBadge.jsx
 import { colors } from '../../styles/colors'
 
 const STATUS_CONFIG = {

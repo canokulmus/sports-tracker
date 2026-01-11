@@ -1,6 +1,3 @@
-// WebSocket Client Service for Sports Tracker
-// Connects to backend WebSocket server and manages real-time communication
-
 class WebSocketClient {
   constructor() {
     this.ws = null;
@@ -10,13 +7,11 @@ class WebSocketClient {
     this.maxReconnectAttempts = 5;
     this.reconnectDelay = 2000;
 
-    // Message handlers
     this.messageHandlers = new Map();
     this.notificationHandlers = [];
     this.requestCallbacks = new Map();
     this.requestId = 0;
 
-    // Global error handler
     this.errorHandler = null;
   }
 
@@ -59,7 +54,6 @@ class WebSocketClient {
   }
 
   handleMessage(data) {
-    // Handle notifications (real-time updates)
     if (data.type === 'NOTIFICATION') {
       this.notificationHandlers.forEach(handler => {
         try {
@@ -71,14 +65,11 @@ class WebSocketClient {
       return;
     }
 
-    // Handle INFO messages (welcome, etc.)
     if (data.type === 'INFO') {
       console.log('[WebSocket]', data.message);
       return;
     }
 
-    // Handle command responses
-    // Backend doesn't echo requestId, so we resolve the oldest pending request
     if (data.status) {
       if (this.requestCallbacks.size > 0) {
         const firstKey = this.requestCallbacks.keys().next().value;
@@ -89,7 +80,6 @@ class WebSocketClient {
           resolve(data);
         } else if (data.status === 'ERROR') {
           const error = new Error(data.message || 'Unknown error');
-          // Call global error handler if registered
           if (this.errorHandler) {
             this.errorHandler(error, data);
           }
@@ -117,10 +107,8 @@ class WebSocketClient {
         requestId
       };
 
-      // Store callback for response
       this.requestCallbacks.set(requestId, { resolve, reject });
 
-      // Set timeout for request
       setTimeout(() => {
         if (this.requestCallbacks.has(requestId)) {
           this.requestCallbacks.delete(requestId);
@@ -174,18 +162,15 @@ class WebSocketClient {
     return this.connected;
   }
 
-  // Set global error handler
   setErrorHandler(handler) {
     this.errorHandler = handler;
   }
 
-  // Remove error handler
   removeErrorHandler() {
     this.errorHandler = null;
   }
 }
 
-// Singleton instance
 const wsClient = new WebSocketClient();
 
 export default wsClient;

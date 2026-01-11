@@ -111,6 +111,3 @@ venv.bak/
 # IDE-specific
 .idea/
 .vscode/
-
-# claude-specific
-.claude/

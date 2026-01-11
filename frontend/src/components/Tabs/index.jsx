@@ -27,7 +27,6 @@ function Tabs({ tabs, activeTab, onTabChange }) {
         ))}
       </div>
 
-      {/* Hide scrollbar styling */}
       <style>{`
         .tabs-scroll {
           scrollbar-width: none; /* Firefox */

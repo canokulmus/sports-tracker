@@ -1,10 +1,8 @@
-// src/components/Game/ScorersList.jsx
 import { colors } from '../../styles/colors'
 
 function ScorersList({ scorers = [] }) {
   if (!scorers?.length) return null
 
-  // Helper to format time string (MM:SS.ff -> M')
   const formatMinute = (timeStr) => {
     if (!timeStr) return null
     const minutes = Math.floor(parseFloat(timeStr.split(':')[0]))
@@ -14,11 +12,10 @@ function ScorersList({ scorers = [] }) {
   return (
     <div style={styles.container}>
       {scorers.map((scorer, idx) => {
-        // Support both formats: {name, goals, minutes} from backend and {player, minute} from old format
         const playerName = scorer?.name || scorer?.player || 'Unknown'
         const goals = scorer?.goals || 1
-        const minutes = scorer?.minutes || [] // Array of time strings
-        const singleMinute = scorer?.minute // Old format single minute
+        const minutes = scorer?.minutes || [] 
+        const singleMinute = scorer?.minute
 
         return (
           <div key={`${playerName}-${idx}`} style={styles.scorer}>
@@ -27,7 +24,6 @@ function ScorersList({ scorers = [] }) {
             {goals > 1 && (
               <span style={styles.goals}>×{goals}</span>
             )}
-            {/* Show minutes from timeline */}
             {minutes.length > 0 && (
               <div style={styles.minutesContainer}>
                 {minutes.map((timeStr, mIdx) => (
@@ -37,7 +33,6 @@ function ScorersList({ scorers = [] }) {
                 ))}
               </div>
             )}
-            {/* Fallback to old format single minute */}
             {!minutes.length && singleMinute && (
               <span style={styles.minute}>{singleMinute}'</span>
             )}

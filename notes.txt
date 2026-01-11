@@ -1,5 +1,8 @@
+// run backend
 pkill -f "python.*server.py"
-
 
 source venv/bin/activate
 python3 server.py
+
+// run frontend
+npm run dev

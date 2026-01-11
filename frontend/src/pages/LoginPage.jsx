@@ -1,4 +1,3 @@
-// src/pages/LoginPage.jsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Trophy, User, ArrowRight } from 'lucide-react';
@@ -49,7 +48,6 @@ export default function LoginPage() {
         overflow: 'hidden',
       }}
     >
-      {/* Animated background elements */}
       <div
         style={{
           position: 'absolute',
@@ -87,7 +85,6 @@ export default function LoginPage() {
           zIndex: 1,
         }}
       >
-        {/* Logo and Title */}
         <div
           style={{
             display: 'flex',
@@ -140,7 +137,6 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Login Card */}
         <div
           style={{
             backgroundColor: colors.background.secondary,
@@ -292,7 +288,6 @@ export default function LoginPage() {
           </form>
         </div>
 
-        {/* Footer text */}
         <p
           style={{
             textAlign: 'center',

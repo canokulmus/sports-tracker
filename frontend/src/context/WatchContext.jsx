@@ -7,11 +7,10 @@ const WatchContext = createContext(null)
 export function WatchProvider({ children }) {
   const [watchedGames, setWatchedGames] = useState([])
   const [watchedCups, setWatchedCups] = useState([])
-  const [autoWatchedGames, setAutoWatchedGames] = useState({}) // Map of gameId -> cupId for auto-watched games
+  const [autoWatchedGames, setAutoWatchedGames] = useState({})
   const [notifications, setNotifications] = useState([])
   const { user } = useUser()
 
-  // Load watched games and cups from server on mount
   useEffect(() => {
     console.log('[WatchContext] User state changed:', user)
     if (!user) {
@@ -27,7 +26,6 @@ export function WatchProvider({ children }) {
         setWatchedGames(gameIds)
         console.log('[WatchContext] Loaded watched games from server:', gameIds)
 
-        // Build autoWatchedGames map from the response
         const autoWatchedMap = {}
         games.forEach(game => {
           if (game.autoWatchedFromCup) {
@@ -43,7 +41,6 @@ export function WatchProvider({ children }) {
         console.log('[WatchContext] Loaded watched cups from server:', cupIds)
       } catch (error) {
         console.error('[WatchContext] Failed to load watched items:', error)
-        // Initialize with empty arrays on error
         setWatchedGames([])
         setWatchedCups([])
         setAutoWatchedGames({})
@@ -61,9 +58,8 @@ export function WatchProvider({ children }) {
         const gameId = notification.game_id
         console.log('[WatchContext] Game ID:', gameId, 'Watched games:', watchedGames, 'Watched cups:', watchedCups)
 
-        // Check if this game is watched directly OR part of a watched cup
         const isGameWatched = watchedGames.includes(gameId)
-        const isCupWatched = watchedCups.length > 0 // If user watches any cup, show all game notifications from watched cups
+        const isCupWatched = watchedCups.length > 0
 
         if (isGameWatched || isCupWatched) {
           const message = `${notification.home} vs ${notification.away}: ${notification.score.home}-${notification.score.away} (${notification.state})`
@@ -91,10 +87,8 @@ export function WatchProvider({ children }) {
 
   const watchGame = useCallback(async (gameId) => {
     try {
-      // Send WATCH command to backend
       await watchApi.watch(gameId)
 
-      // Update local state
       setWatchedGames((prev) => {
         if (prev.includes(gameId)) return prev
         return [...prev, gameId]
@@ -107,10 +101,8 @@ export function WatchProvider({ children }) {
 
   const unwatchGame = useCallback(async (gameId) => {
     try {
-      // Send UNWATCH command to backend
       await watchApi.unwatch(gameId)
 
-      // Update local state
       setWatchedGames((prev) => prev.filter((id) => id !== gameId))
     } catch (error) {
       console.error('Failed to unwatch game:', error)
@@ -138,7 +130,6 @@ export function WatchProvider({ children }) {
         return [...prev, cupId]
       })
 
-      // If backend returned auto_watched_games, update our state
       if (response && response.auto_watched_games) {
         const newAutoWatchedGames = {}
         response.auto_watched_games.forEach(gameId => {
@@ -159,13 +150,11 @@ export function WatchProvider({ children }) {
       await watchApi.unwatchCup(cupId)
       setWatchedCups((prev) => prev.filter((id) => id !== cupId))
 
-      // Remove all auto-watched games from this cup
       setAutoWatchedGames(prev => {
         const gamesToRemove = Object.keys(prev).filter(gameId => prev[gameId] === cupId)
         const newAutoWatched = { ...prev }
         gamesToRemove.forEach(gameId => delete newAutoWatched[gameId])
 
-        // Also remove these games from watchedGames
         setWatchedGames(watchedPrev => watchedPrev.filter(id => !gamesToRemove.includes(id.toString())))
 
         return newAutoWatched

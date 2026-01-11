@@ -14,7 +14,6 @@ function GamesPage() {
   const { formData: newGame, updateField, resetForm } = useFormState({ homeId: '', awayId: '' })
   const [activeTab, setActiveTab] = useState('all')
 
-  // Search state
   const [searchParams, setSearchParams] = useState({
     teamName: '',
     group: '',
@@ -50,28 +49,23 @@ function GamesPage() {
     }
   }
 
-  // Search handler
   const handleSearch = async (e) => {
     e.preventDefault()
 
-    // Check if any search parameter is filled
     const hasSearchParams = Object.values(searchParams).some(val => val !== '')
 
     if (!hasSearchParams) {
-      // If no params, reset to show all games
       setIsSearchActive(false)
       setSearchResults([])
       return
     }
 
     try {
-      // Convert dates to ISO format if provided
       const searchQuery = { ...searchParams }
       if (searchQuery.startDate) {
         searchQuery.startDate = new Date(searchQuery.startDate).toISOString()
       }
       if (searchQuery.endDate) {
-        // Set to end of day
         const endDate = new Date(searchQuery.endDate)
         endDate.setHours(23, 59, 59, 999)
         searchQuery.endDate = endDate.toISOString()
@@ -81,7 +75,6 @@ function GamesPage() {
       setSearchResults(results)
       setIsSearchActive(true)
 
-      // Load players for search results
       const playersMap = {}
       for (const game of results) {
         if (game?.id) {
@@ -90,7 +83,6 @@ function GamesPage() {
         }
       }
 
-      // Update gamePlayers with search results
       data.gamePlayers = { ...data.gamePlayers, ...playersMap }
     } catch (error) {
       console.error('Search failed:', error)
@@ -118,15 +110,12 @@ function GamesPage() {
   const teams = data?.teams ?? []
   const gamePlayers = data?.gamePlayers ?? {}
 
-  // Use search results if search is active, otherwise use all games
   const displayGames = isSearchActive ? searchResults : allGames
 
-  // Filter games by tab
   const filteredGames = activeTab === 'all'
     ? displayGames
     : displayGames.filter(game => game.state === activeTab.toUpperCase())
 
-  // Count games by state (from displayed games)
   const gameCounts = {
     all: displayGames.length,
     ready: displayGames.filter(g => g.state === 'READY').length,
@@ -135,7 +124,6 @@ function GamesPage() {
     ended: displayGames.filter(g => g.state === 'ENDED').length,
   }
 
-  // Define tabs
   const tabs = [
     { id: 'all', label: 'All', count: gameCounts.all },
     { id: 'running', label: 'Running', count: gameCounts.running },
@@ -227,7 +215,6 @@ function GamesPage() {
         </div>
       )}
 
-      {/* Search Section */}
       <div className="card mb-4">
         <div className="flex justify-between items-center mb-4">
           <h3 className="card-title">Search Games</h3>
@@ -245,7 +232,6 @@ function GamesPage() {
 
         <form onSubmit={handleSearch}>
           <div className="form-row">
-            {/* Team Name Search */}
             <div className="form-group">
               <label className="form-label">Team Name</label>
               <input
@@ -257,7 +243,6 @@ function GamesPage() {
               />
             </div>
 
-            {/* Search Button */}
             <div className="form-group" style={{ alignSelf: 'flex-end' }}>
               <button type="submit" className="btn btn-primary">
                 <Search size={16} />
@@ -266,10 +251,8 @@ function GamesPage() {
             </div>
           </div>
 
-          {/* Advanced Filters */}
           {showSearchFilters && (
             <div className="form-row mt-3">
-              {/* Group Filter */}
               <div className="form-group">
                 <label className="form-label">Group</label>
                 <input
@@ -281,7 +264,6 @@ function GamesPage() {
                 />
               </div>
 
-              {/* Cup Filter */}
               <div className="form-group">
                 <label className="form-label">Tournament</label>
                 <select
@@ -298,7 +280,6 @@ function GamesPage() {
                 </select>
               </div>
 
-              {/* Start Date Filter */}
               <div className="form-group">
                 <label className="form-label">Start Date</label>
                 <input
@@ -309,7 +290,6 @@ function GamesPage() {
                 />
               </div>
 
-              {/* End Date Filter */}
               <div className="form-group">
                 <label className="form-label">End Date</label>
                 <input
@@ -330,10 +310,8 @@ function GamesPage() {
         )}
       </div>
 
-      {/* Tabs */}
       <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {/* Games Grid */}
       {filteredGames.length === 0 ? (
         <div className="card">
           <div className="empty-state">

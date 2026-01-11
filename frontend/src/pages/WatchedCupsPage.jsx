@@ -16,7 +16,6 @@ function WatchedCupsPage() {
     loadWatchedCups()
   }, [watchedCups])
 
-  // Listen for game updates to refresh cup data
   useEffect(() => {
     const unsubscribe = onGameNotification((notification) => {
       if (notification.type === 'NOTIFICATION') {
@@ -58,7 +57,6 @@ function WatchedCupsPage() {
       </div>
 
       <div className="grid grid-2">
-        {/* Watched Cups List */}
         <div>
           <div className="card">
             <h3 className="card-title mb-4">Your Watched Tournaments</h3>
@@ -144,7 +142,6 @@ function WatchedCupsPage() {
           </div>
         </div>
 
-        {/* Notifications Feed */}
         <div>
           <div className="card">
             <div style={styles.notifHeader}>
@@ -264,7 +261,6 @@ const styles = {
     gap: '6px',
     marginBottom: '12px',
     padding: '6px 12px',
-    // backgroundColor: withOpacity(colors.state.successBg, 0.1),
     borderRadius: '4px',
     width: 'fit-content',
   },

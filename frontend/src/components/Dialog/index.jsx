@@ -4,7 +4,7 @@ import { useDialog } from '../../context/DialogContext'
 import { useMediaQuery, mediaQueries } from '../../utils/responsive'
 
 function Dialog() {
-  const { dialog, hideDialog } = useDialog()
+  const { dialog } = useDialog()
   const isMobile = useMediaQuery(mediaQueries.mobile)
 
   if (!dialog) return null
@@ -96,7 +96,6 @@ function Dialog() {
         </div>
       </div>
 
-      {/* Close button hover styles */}
       {isMobile && (
         <style>{`
           .dialog-close-btn:hover {

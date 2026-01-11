@@ -76,7 +76,6 @@ function CupsPage() {
       return
     }
 
-    // Validation for GROUP tournaments
     if (cupType === 'GROUP' || cupType === 'GROUP2') {
       if (selectedTeamIds.length < numGroups * 2) {
         alert({
@@ -104,7 +103,7 @@ function CupsPage() {
   }
 
   const handleDeleteCup = (e, cup) => {
-    e.stopPropagation() // Prevent navigation when clicking delete
+    e.stopPropagation()
     confirm({
       title: 'Delete Tournament',
       message: `Are you sure you want to delete "${cup.name}"? This will also delete all ${cup.gameCount} games in this tournament.`,

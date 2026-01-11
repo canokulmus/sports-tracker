@@ -1,4 +1,3 @@
-// src/components/Cup/StandingsTable.jsx
 import { colors } from '../../styles/colors'
 
 function LeagueStandings({ standings }) {
@@ -47,7 +46,6 @@ function LeagueStandings({ standings }) {
 }
 
 function GroupStandings({ standings }) {
-  // Handle nested format: {Groups: {A: [...], B: [...]}, Playoffs: {...}}
   const groups = standings.Groups || standings
   const groupNames = Object.keys(groups).sort()
 
@@ -56,7 +54,6 @@ function GroupStandings({ standings }) {
       {groupNames.map((groupName) => {
         const groupStandings = groups[groupName]
 
-        // Skip if not an array (e.g., Playoffs might be an object)
         if (!Array.isArray(groupStandings)) {
           return null
         }
@@ -114,12 +111,11 @@ function StandingsTable({ standings, cupType }) {
     )
   }
 
-  // GROUP tournament has object with group names (both GROUP and GROUP2)
   if ((cupType === 'GROUP' || cupType === 'GROUP2') && typeof standings === 'object' && !Array.isArray(standings)) {
     return <GroupStandings standings={standings} />
   }
 
-  // LEAGUE tournament has array (both LEAGUE and LEAGUE2)
+  // TODO (can): LEAGUE tournament has array, return LeagueStandings
   if (Array.isArray(standings)) {
     return <LeagueStandings standings={standings} />
   }

@@ -5,17 +5,14 @@ import { colors } from '../../styles/colors'
 function WatchButton({ gameId, isWatching: isWatchingProp, onToggle, variant = 'default', showLabel = true }) {
   const { isWatching, toggleWatch, isGameAutoWatched } = useWatch()
 
-  // Use provided props if available, otherwise use context
   const watching = isWatchingProp !== undefined ? isWatchingProp : isWatching(gameId)
   const handleToggle = onToggle || (() => toggleWatch(gameId))
 
-  // Check if this game is auto-watched from a cup
   const autoWatched = gameId ? isGameAutoWatched(gameId) : false
 
   const handleClick = (e) => {
     e.stopPropagation()
 
-    // Prevent unwatching if auto-watched from cup
     if (autoWatched && watching) {
       alert(`This game is automatically watched because you're watching the tournament. To unwatch this game, unwatch the tournament instead.`)
       return

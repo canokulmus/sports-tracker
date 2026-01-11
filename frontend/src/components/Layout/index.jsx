@@ -1,4 +1,3 @@
-// src/components/Layout/index.jsx
 import { useState, useRef } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Menu, Trophy } from 'lucide-react'
@@ -19,7 +18,6 @@ function Layout() {
     <div className="app-container">
       <SideNav ref={sideNavRef} onToggle={setIsSidebarCollapsed} />
 
-      {/* Mobile Header */}
       {isMobile && (
         <header className="mobile-header">
           <button

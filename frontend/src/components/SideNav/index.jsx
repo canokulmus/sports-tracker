@@ -1,4 +1,3 @@
-// src/components/SideNav/index.jsx
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { NavLink } from 'react-router-dom'
 import { Trophy, Users, Gamepad2, Award, Radio, Eye, ChevronLeft, ChevronRight, X, LogOut, User } from 'lucide-react'
@@ -16,7 +15,6 @@ const SideNav = forwardRef(({ onToggle }, ref) => {
   const isMobile = useMediaQuery(mediaQueries.tablet)
   const { user, logout } = useUser()
 
-  // Check WebSocket connection status
   useEffect(() => {
     const checkConnection = () => {
       setWsConnected(isWebSocketConnected())
@@ -28,7 +26,6 @@ const SideNav = forwardRef(({ onToggle }, ref) => {
     return () => clearInterval(interval)
   }, [])
 
-  // Auto-close mobile menu when screen becomes larger
   useEffect(() => {
     if (!isMobile) {
       setIsMobileMenuOpen(false)
@@ -49,7 +46,6 @@ const SideNav = forwardRef(({ onToggle }, ref) => {
     setIsMobileMenuOpen(false)
   }
 
-  // Expose toggle function to parent via ref
   useImperativeHandle(ref, () => ({
     toggleMobileMenu: () => {
       if (isMobile) {
@@ -71,13 +67,11 @@ const SideNav = forwardRef(({ onToggle }, ref) => {
 
   return (
     <>
-      {/* Mobile backdrop */}
       {isMobile && isMobileMenuOpen && (
         <div className="sidebar-backdrop" onClick={handleMobileMenuClose} />
       )}
 
       <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${isMobile && isMobileMenuOpen ? 'mobile-open' : ''}`}>
-        {/* Mobile close button */}
         {isMobile && isMobileMenuOpen && (
           <button
             className="mobile-close-btn"
@@ -93,7 +87,6 @@ const SideNav = forwardRef(({ onToggle }, ref) => {
           {!isCollapsed && <span>Sports Tracker</span>}
         </div>
 
-        {/* Desktop collapse button */}
         {!isMobile && (
           <button
             className="toggle-btn"
@@ -128,7 +121,6 @@ const SideNav = forwardRef(({ onToggle }, ref) => {
         </nav>
 
         <div className="status-wrapper">
-          {/* User Info */}
           {user && (
             <div
               style={{
@@ -199,7 +191,6 @@ const SideNav = forwardRef(({ onToggle }, ref) => {
             </div>
           )}
 
-          {/* WebSocket Status */}
           <div className="status-card">
             <div className="status-content">
               <div

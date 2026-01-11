@@ -21,7 +21,6 @@ function LivePage() {
 
   return (
     <div>
-      {/* Header */}
       <div className="page-header">
         <div style={styles.titleContainer}>
           <Radio size={32} style={{ color: colors.state.danger }} />
@@ -32,7 +31,6 @@ function LivePage() {
         </p>
       </div>
 
-      {/* Live Stats Card */}
       <div style={styles.statsCard}>
         <div style={styles.statsContent}>
           <div style={styles.liveDot} />
@@ -42,7 +40,6 @@ function LivePage() {
         </div>
       </div>
 
-      {/* Live Games */}
       {!games || games.length === 0 ? (
         <div className="card" style={styles.emptyCard}>
           <div className="empty-state">
@@ -67,7 +64,6 @@ function LivePage() {
         </div>
       )}
 
-      {/* Footer Info */}
       <div className="card mt-4" style={styles.footerCard}>
         <div style={styles.footerText}>
           💡 Use the <strong>Games</strong> page to manage games.

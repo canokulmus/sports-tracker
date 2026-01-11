@@ -1,4 +1,3 @@
-// src/components/Game/GameCard.jsx
 import { Play, Pause, Square, Trash2, Circle } from 'lucide-react'
 import StatusBadge from './StatusBadge'
 import ScorersList from './ScorersList'
@@ -128,7 +127,6 @@ function GameCard({
       className={cardClasses}
       onClick={handleCardClick}
     >
-      {/* Header */}
       <div style={styles.header}>
         <div style={styles.headerLeft}>
           {isLive && (
@@ -166,9 +164,7 @@ function GameCard({
         </div>
       </div>
 
-      {/* Teams & Score */}
       <div style={scoreBoardStyle}>
-        {/* Home Team */}
         <div style={styles.team}>
           <div style={teamNameStyle}>{homeName}</div>
           <div style={scoreStyle(homeScore > awayScore)}>
@@ -187,14 +183,12 @@ function GameCard({
           )}
         </div>
 
-        {/* Separator */}
         <div style={styles.separator}>
           <div style={styles.separatorLine} />
           <span style={styles.separatorText}>VS</span>
           <div style={styles.separatorLine} />
         </div>
 
-        {/* Away Team */}
         <div style={styles.team}>
           <div style={teamNameStyle}>{awayName}</div>
           <div style={scoreStyle(awayScore > homeScore)}>
@@ -214,7 +208,6 @@ function GameCard({
         </div>
       </div>
 
-      {/* Action Buttons */}
       {showControls && (
         <div style={actionsStyle}>
           {isReady && onStart && (
@@ -280,7 +273,6 @@ function GameCard({
         </div>
       )}
 
-      {/* Inline Styles for Subtle Dark Theme Buttons */}
       <style>{`
         .game-action-btn {
           display: inline-flex;
@@ -337,7 +329,6 @@ function GameCard({
           transform: translateY(0);
         }
 
-        /* Responsive GameCard Styles */
         @media (max-width: 480px) {
           .game-card-hover {
             padding: 16px !important;

@@ -1,23 +1,14 @@
-// src/services/api.js
-// WebSocket API service for Sports Tracker
 // Connects to backend server via WebSocket (ws://localhost:8888)
 
 import wsClient from './websocket';
 
-// Helper to map backend state names to frontend
-const mapGameState = (backendState) => {
-  // Backend and frontend use the same state names:
-  // READY, RUNNING, PAUSED, ENDED
-  return backendState;
-};
-
-// Helper to transform backend game to frontend format
+// helper to transform backend game to frontend format
 const transformGame = (backendGame) => {
   // Parse timeline to add minute information to scorers
   const timeline = backendGame.timeline || [];
   const scorersWithMinutes = { home: [], away: [] };
 
-  // Process timeline to extract goal events with minutes
+  // process timeline to extract goal events with minutes
   if (timeline.length > 0) {
     const goalsByPlayer = { home: {}, away: {} };
 
@@ -40,7 +31,7 @@ const transformGame = (backendGame) => {
         scorersWithMinutes[side].push({
           name: playerName,
           goals: data.goals,
-          minutes: data.minutes // Array of time strings like "12:34.56"
+          minutes: data.minutes
         });
       });
     });
@@ -61,7 +52,7 @@ const transformGame = (backendGame) => {
       id: backendGame.away_id,
       name: backendGame.away
     },
-    state: mapGameState(backendGame.state),
+    state: backendGame.state,
     score: {
       home: backendGame.score.home,
       away: backendGame.score.away
@@ -73,9 +64,7 @@ const transformGame = (backendGame) => {
   };
 };
 
-// ==========================================
 // AUTH API
-// ==========================================
 export const authApi = {
   login: async (username) => {
     const response = await wsClient.sendCommand('LOGIN', { username });
@@ -87,9 +76,7 @@ export const authApi = {
   },
 };
 
-// ==========================================
 // TEAM API
-// ==========================================
 export const teamApi = {
   getAll: async () => {
     const response = await wsClient.sendCommand('GET_TEAMS');
@@ -158,9 +145,7 @@ export const teamApi = {
   },
 };
 
-// ==========================================
 // GAME API
-// ==========================================
 export const gameApi = {
   getAll: async () => {
     const response = await wsClient.sendCommand('GET_GAMES');
@@ -177,11 +162,9 @@ export const gameApi = {
     const game = await gameApi.getById(gameId);
     if (!game) return { home: [], away: [] };
 
-    // Check if teams are placeholders (no valid ID or name starts with "Winner of")
     const homeIsPlaceholder = !game.home.id || game.home.name?.startsWith('Winner of');
     const awayIsPlaceholder = !game.away.id || game.away.name?.startsWith('Winner of');
 
-    // Return empty arrays for placeholder teams
     if (homeIsPlaceholder && awayIsPlaceholder) {
       return { home: [], away: [] };
     }
@@ -189,7 +172,6 @@ export const gameApi = {
     let homePlayers = [];
     let awayPlayers = [];
 
-    // Get players from home team if it's real
     if (!homeIsPlaceholder) {
       try {
         const response = await wsClient.sendCommand('GET_PLAYERS', {
@@ -201,7 +183,6 @@ export const gameApi = {
       }
     }
 
-    // Get players from away team if it's real
     if (!awayIsPlaceholder) {
       try {
         const awayResponse = await wsClient.sendCommand('GET_PLAYERS', {
@@ -225,7 +206,6 @@ export const gameApi = {
       away_id: awayId
     });
 
-    // Fetch the created game to get full details
     return await gameApi.getById(response.id);
   },
 
@@ -291,9 +271,7 @@ export const gameApi = {
   },
 };
 
-// ==========================================
 // CUP API
-// ==========================================
 export const cupApi = {
   getAll: async () => {
     const response = await wsClient.sendCommand('GET_CUPS');
@@ -304,15 +282,12 @@ export const cupApi = {
     let name, type, teamIds, numGroups, playoffTeams;
 
     if (typeof arg1 === 'object' && arg1 !== null && !Array.isArray(arg1)) {
-      // Object style
       ({ name, type, teamIds, numGroups, playoffTeams } = arg1);
-      // Handle property aliases
       type = type || arg1.cup_type || arg1.cupType;
       teamIds = teamIds || arg1.team_ids || arg1.teams;
       numGroups = numGroups || arg1.num_groups;
       playoffTeams = playoffTeams || arg1.playoff_teams;
     } else {
-      // Positional style: create(name, type, teamIds, numGroups, playoffTeams)
       name = arg1;
       type = arg2;
       teamIds = arg3;

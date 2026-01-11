@@ -1,8 +1,7 @@
-// src/pages/CupDetail.jsx
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Trophy, Calendar } from 'lucide-react'
-import { cupApi, gameApi, onGameNotification } from '../services/api'
+import { cupApi, onGameNotification } from '../services/api'
 import { colors } from '../styles/colors'
 import { Loader } from '../components/Loader'
 import StandingsTable from '../components/Cup/StandingsTable'
@@ -21,18 +20,15 @@ function CupDetail() {
   const [gameTree, setGameTree] = useState(null)
   const [fixtures, setFixtures] = useState([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('') // Will be set based on cup type
+  const [activeTab, setActiveTab] = useState('')
 
   useEffect(() => {
     loadCupData()
   }, [cupId])
 
-  // Listen for WebSocket notifications to update cup data in real-time
   useEffect(() => {
     const unsubscribe = onGameNotification((notification) => {
-      // Reload cup data when any game in this cup is updated
       if (notification.type === 'NOTIFICATION' && notification.game_id) {
-        // Check if this game belongs to current cup
         const gameInCup = fixtures.some(game => game.id === notification.game_id)
         if (gameInCup) {
           console.log('[CupDetail] Received update for game in this cup, reloading...')
@@ -52,24 +48,20 @@ function CupDetail() {
       const cupData = await cupApi.getById(parseInt(cupId))
       setCup(cupData)
 
-      // Set default tab based on cup type
       if (cupData.type === 'ELIMINATION' || cupData.type === 'ELIMINATION2') {
         setActiveTab('bracket')
       } else {
         setActiveTab('standings')
       }
 
-      // Load standings (not needed for ELIMINATION types)
       if (cupData.type !== 'ELIMINATION' && cupData.type !== 'ELIMINATION2') {
         const standingsData = await cupApi.getStandings(parseInt(cupId))
         setStandings(standingsData)
       }
 
-      // Load fixtures (games in this cup)
       const cupGames = await cupApi.getCupGames(parseInt(cupId))
       setFixtures(cupGames)
 
-      // Load GameTree for GROUP and ELIMINATION tournaments
       const needsGameTree = ['GROUP', 'GROUP2', 'ELIMINATION', 'ELIMINATION2'].includes(cupData.type)
       if (needsGameTree) {
         try {
@@ -103,7 +95,6 @@ function CupDetail() {
 
   return (
     <div>
-      {/* Header with back button */}
       <div style={styles.header}>
         <button
           className="btn btn-secondary"
@@ -141,9 +132,7 @@ function CupDetail() {
         </div>
       </div>
 
-      {/* Tabs */}
       <div style={styles.tabs}>
-        {/* Standings tab - only for LEAGUE and GROUP types */}
         {cup.type !== 'ELIMINATION' && cup.type !== 'ELIMINATION2' && (
           <button
             style={{
@@ -156,7 +145,6 @@ function CupDetail() {
           </button>
         )}
 
-        {/* Knockout/Bracket tab - only for ELIMINATION types */}
         {(cup.type === 'ELIMINATION' || cup.type === 'ELIMINATION2') && (
           <button
             style={{
@@ -170,7 +158,6 @@ function CupDetail() {
           </button>
         )}
 
-        {/* Fixtures tab - for all types */}
         <button
           style={{
             ...styles.tab,
@@ -182,7 +169,6 @@ function CupDetail() {
           Fixtures
         </button>
 
-        {/* Playoff Stage tab - only for GROUP types */}
         {(cup.type === 'GROUP' || cup.type === 'GROUP2') && (
           <button
             style={{
@@ -196,9 +182,7 @@ function CupDetail() {
         )}
       </div>
 
-      {/* Content */}
       <div className="card" style={{ marginTop: '24px' }}>
-        {/* Standings - LEAGUE and GROUP only */}
         {activeTab === 'standings' && (
           <div>
             <h3 className="card-title mb-4">Standings</h3>
@@ -206,7 +190,6 @@ function CupDetail() {
           </div>
         )}
 
-        {/* Knockout Stages - ELIMINATION only */}
         {activeTab === 'bracket' && (
           <div>
             <h3 className="card-title mb-4">Knockout Stages</h3>
@@ -221,7 +204,6 @@ function CupDetail() {
           </div>
         )}
 
-        {/* Fixtures - all types */}
         {activeTab === 'fixtures' && (
           <div>
             <h3 className="card-title mb-4">Fixtures ({fixtures.length} games)</h3>
@@ -245,7 +227,6 @@ function CupDetail() {
           </div>
         )}
 
-        {/* Playoff Stage - GROUP only */}
         {activeTab === 'playoffs' && (
           <div>
             <h3 className="card-title mb-4">Playoff Stage</h3>
