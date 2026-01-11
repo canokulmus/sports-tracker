@@ -81,8 +81,7 @@ class Session:
         self.user = "Anonymous"  # Default user, can be changed with the USER command.
 
         # This queue is the bridge between the game logic (which calls observer.update)
-        # and the notification agent (which sends to the socket). This is a suggested
-        # design in the project description to handle asynchronous notifications.
+        # and the notification agent (which sends to the socket). This handles asynchronous notifications.
         self.output_queue: queue.Queue[str | None] = queue.Queue()
         self.observer = SocketObserver(self.output_queue)
 
@@ -118,7 +117,7 @@ class Session:
                 msg = self.output_queue.get()
                 if msg is None:  # A `None` message is a sentinel to stop the thread.
                     break
-                # TODO: Learn - WebSockets are message-based, so we don't need '\n' delimiters anymore.
+                # WebSockets are message-based; manual delimiters like '\n' are unnecessary.
                 self.websocket.send(msg)
             except (ConnectionClosedError, ConnectionClosedOK):
                 break # Stop if the socket is closed.
@@ -159,7 +158,7 @@ class Session:
                                         try:
                                             instance.watch(self.observer)
                                         except ValueError:
-                                            # Already watching - this is OK (e.g., game already watched via cup)
+                                            # Already watching - game already watched via cup
                                             pass
                                         self.watched_ids.append(oid)
 
@@ -542,7 +541,7 @@ class Session:
                         try:
                             instance.watch(self.observer)
                         except ValueError:
-                            # Already watching - this is OK, just ignore
+                            # Already watching
                             pass
 
                         if oid not in self.watched_ids:
@@ -576,7 +575,7 @@ class Session:
                                     try:
                                         game.watch(self.observer)
                                     except ValueError:
-                                        # Already watching - this is OK, just ignore
+                                        # Already watching
                                         pass
 
                                     if game_id not in self.watched_ids:
@@ -619,7 +618,7 @@ class Session:
                         try:
                             instance.unwatch(self.observer)
                         except ValueError:
-                            # Not watching - this is OK, just ignore
+                            # Not watching
                             pass
 
                         if oid in self.watched_ids:
@@ -1032,7 +1031,6 @@ class Session:
                         cup.generate_playoffs()
                         new_games = len(cup.games) - count_before
 
-                        # We must save the new state immediately
                         save_state()
 
                         return {"status": "OK", "message": f"Playoffs generated. {new_games} new games created."}
@@ -1051,7 +1049,6 @@ class Session:
                     game = self.find_game(int(gid))
                     if game:
                         game.end()
-                        # Final skoru göster
                         return {
                             "status": "OK", 
                             "message": f"Game ended: {game.home().team_name} {game.home_score} - {game.away_score} {game.away().team_name}"
@@ -1197,7 +1194,7 @@ def agent(websocket):
         websocket.send(json.dumps(welcome))
 
         # Loop for incoming messages
-        # TODO: Learn - 'for message in websocket' is a blocking loop that yields messages as they arrive.
+        # Iterating over the websocket yields messages as they arrive, blocking until the next one.
         for message in websocket:
             try:
                 request = json.loads(message)
@@ -1231,7 +1228,7 @@ def load_state():
                 with open(SAVE_FILE, 'rb') as f:
                     saved_data = pickle.load(f)
 
-                    # Support both old format (just Repo) and new format (dict with repo + users)
+                    # Support both Repo) and dict (repo + users)
                     if isinstance(saved_data, Repo):
                         repository = saved_data
                     elif isinstance(saved_data, dict):
@@ -1290,10 +1287,10 @@ def save_state():
 if __name__ == "__main__":
     load_state()
     
-    # TODO: Learn - This starts the WebSocket server. 'serve' creates a thread for each connection calling 'agent'.
+    # Starts the WebSocket server; 'serve' spawns a new thread for each client connection.
     print(f"WebSocket Server listening on {HOST}:{PORT}...")
     try:
-        # TODO: Learn - This starts the WebSocket server. 'serve' creates a thread for each connection calling 'agent'.
+        # The 'serve' context manager handles connection listening and thread dispatching.
         with serve(agent, HOST, PORT) as server:
             server.serve_forever()
     except KeyboardInterrupt:

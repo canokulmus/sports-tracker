@@ -19,11 +19,11 @@ class Cup:
         interval: timedelta,
         num_groups: int = 4,
         playoff_teams: int = 8,
-        repo: Optional[Any] = None,  # <--- Add this argument
+        repo: Optional[Any] = None,
         **kwargs: Any,
     ) -> None:
         """Initializes a tournament, generating all its games based on the format."""
-        self.repo = repo  # <--- Store the repo reference
+        self.repo = repo  #
         self.id_ = kwargs.get("id_", -1)
         self.teams = teams
         self.cup_type = cup_type
@@ -87,19 +87,19 @@ class Cup:
 
         raise KeyError(f"Game with ID {gameid} not found in this cup")
 
-    # Add this method
+    # Exclude observers from serialization to prevent pickling errors.
     def __getstate__(self):
         state = self.__dict__.copy()
         state["_observers"] = []
         return state
 
-    # Add this method
+    # Restore state and re-initialize observers to maintain tournament logic after loading.
     def __setstate__(self, state):
         self.__dict__.update(state)
         if "_observers" not in self.__dict__:
             self._observers = []
 
-        # Since Game observers are wiped on load, the Cup (which watches games in Group tournaments to trigger playoffs) needs to re-subscribe itself when the server restarts.
+        # Re-subscribe to games to continue monitoring for group completion and bracket updates.
         
         for game in self.games:
             try:
@@ -684,7 +684,7 @@ class Cup:
         )
         # Initialize empty playoff structure
         self.playoff_games = []
-        self.playoff_rounds: List[List[Game]] = []  # Add this attribute!
+        self.playoff_rounds: List[List[Game]] = []  # Playoff round structure.
 
     def _create_group_league(
         self, group_teams: List[Team], group_name: str, double: bool
