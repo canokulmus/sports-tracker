@@ -8,6 +8,12 @@ import StatusBadge from '../components/Game/StatusBadge'
 import GoalDropdown from '../components/Game/GoalDropdown'
 import WatchButton from '../components/WatchButton'
 
+const formatMinute = (timeStr) => {
+  if (!timeStr) return null
+  const mins = Math.ceil(parseFloat(timeStr.split(':')[0]))
+  return `${Math.max(1, mins)}'`
+}
+
 function GameDetail() {
   const { gameId } = useParams()
   const navigate = useNavigate()
@@ -235,12 +241,6 @@ function GameDetail() {
                     const goals = scorer?.goals || 1
                     const minutes = scorer?.minutes || []
 
-                    const formatMinute = (timeStr) => {
-                      if (!timeStr) return null
-                      const mins = Math.floor(parseFloat(timeStr.split(':')[0]))
-                      return `${mins}'`
-                    }
-
                     return (
                       <div key={idx} style={styles.scorerItem}>
                         <span style={styles.scorerIcon}>⚽</span>
@@ -293,12 +293,6 @@ function GameDetail() {
                     const playerName = scorer?.name || scorer?.player || 'Unknown'
                     const goals = scorer?.goals || 1
                     const minutes = scorer?.minutes || []
-
-                    const formatMinute = (timeStr) => {
-                      if (!timeStr) return null
-                      const mins = Math.floor(parseFloat(timeStr.split(':')[0]))
-                      return `${mins}'`
-                    }
 
                     return (
                       <div key={idx} style={styles.scorerItem}>
