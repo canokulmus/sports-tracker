@@ -296,7 +296,17 @@ export default function LoginPage() {
             color: colors.text.muted,
           }}
         >
-          No password required • Just enter your username to continue
+          Copyright © 2026 Sports Tracker. All rights reserved.
+        </p>
+        <p
+          style={{
+            textAlign: 'center',
+            marginTop: '24px',
+            fontSize: '13px',
+            color: colors.text.muted,
+          }}
+        >
+          Created by Can & Alp, for CENG445 Term Project
         </p>
       </div>
 

@@ -282,7 +282,6 @@ function CupsPage() {
                     <Trophy size={20} color={colors.brand.primary} />
                     <strong>{cup.name}</strong>
                   </div>
-                  <ChevronRight size={20} className="text-muted" />
                 </div>
                 <div className="flex gap-2 items-center">
                   <TypeBadge type={cup.type} />

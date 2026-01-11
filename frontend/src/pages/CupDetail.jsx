@@ -320,7 +320,7 @@ const styles = {
   },
   fixturesGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(600px, 1fr))',
     gap: '16px',
   },
 }

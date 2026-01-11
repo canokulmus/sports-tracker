@@ -168,7 +168,7 @@ const styles = {
   statValue: {
     fontSize: '32px',
     fontWeight: '800',
-    color: colors.brand.primary,
+    color: colors.state.warningNeon,
     lineHeight: '1',
   },
   statLabel: {

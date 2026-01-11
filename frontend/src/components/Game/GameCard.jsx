@@ -356,7 +356,7 @@ const styles = {
     cursor: 'pointer',
   },
   cardLive: {
-    borderColor: colors.state.success,
+    borderColor: colors.state.successLight,
     boxShadow: `0 0 0 1px ${colors.state.success}40, 0 8px 24px ${colors.state.success}20`,
   },
   header: {

@@ -67,9 +67,8 @@ const styles = {
     bottom: '-2px',
   },
   tabActive: {
-    color: colors.brand.primary,
-    borderBottomColor: colors.brand.primary,
-    background: `${colors.brand.primary}05`,
+    color: colors.text.primary,
+    borderBottomColor: colors.text.primary,
   },
   count: {
     display: 'flex',
@@ -85,8 +84,8 @@ const styles = {
     color: colors.text.muted,
   },
   countActive: {
-    background: `${colors.brand.primary}20`,
-    color: colors.brand.primary,
+    background: `${colors.text.primary}20`,
+    color: colors.text.primary,
   },
 }
 
